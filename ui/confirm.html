@@ -16,7 +16,8 @@
         <p class="subtitle">Check the targets and breakdown before removing attachments from the selected messages.</p>
     </header>
 
-    <section class="cards">
+    <!-- cards -> stats に変更 -->
+    <section class="stats">
         <div class="card">
             <div class="label">Messages with attachments</div>
             <div id="affected" class="value">—</div>
@@ -33,7 +34,8 @@
 
     <section>
         <h2>By extension / size</h2>
-        <table id="extTable">
+        <!-- .grid を追加 -->
+        <table id="extTable" class="grid">
             <thead>
                 <tr>
                     <th>Extension</th>
@@ -51,7 +53,8 @@
 
     <section>
         <h2>Messages to process</h2>
-        <table id="msgTable" class="wide">
+        <!-- wide に加えて .grid を付与 -->
+        <table id="msgTable" class="grid wide">
             <thead>
                 <tr>
                     <th>Subject</th>

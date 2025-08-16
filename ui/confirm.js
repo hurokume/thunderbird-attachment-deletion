@@ -125,6 +125,37 @@
 
             renderExtSummary(data.stats.extSummary || []);
             renderMessages(data.messages || []);
+
+            // --- ここが今回の追記：上部サマリ（affected / total / bytes）を再計算して上書き ---
+            const setText = (id, txt) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = String(txt);
+            };
+
+            // 件数（affected）
+            const affectedVal = Number(data.stats?.affectedMessages ?? 0);
+            setText('affected', affectedVal);
+
+            // 添付総数（total）：stats.totalAttachments → messages.attachments.count の順でフォールバック
+            let totalVal = Number(data.stats?.totalAttachments ?? 0);
+            if (!totalVal && Array.isArray(data.messages)) {
+                totalVal = data.messages.reduce((s, m) => s + (m?.attachments?.length || 0), 0);
+            }
+            setText('total', totalVal);
+
+            // 総バイト数（bytes）：stats.totalSize → extSummary.sum(bytes) → messages.attachments.sum(size)
+            let bytesVal = Number(data.stats?.totalSize ?? 0);
+            if (!bytesVal && Array.isArray(data.stats?.extSummary)) {
+                bytesVal = data.stats.extSummary.reduce((s, r) => s + (Number(r?.bytes) || 0), 0);
+            }
+            if (!bytesVal && Array.isArray(data.messages)) {
+                bytesVal = data.messages.reduce((s, m) =>
+                    s + (m?.attachments || []).reduce((a, x) => a + (Number(x?.size) || 0), 0)
+                    , 0);
+            }
+            setText('bytes', humanSize(bytesVal));
+            // --- 追記ここまで ---
+
         } catch (e) {
             console.error('confirm: storage access failed', e);
             showError('Failed to load data.');

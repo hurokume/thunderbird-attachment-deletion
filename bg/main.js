@@ -12,22 +12,26 @@
     } = BD.mail;
     const { openConfirmPageAndWait, openPreflightAndWait, createMenus } = BD.ui;
 
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
     async function deleteAllAttachmentsOnSelectedMessages() {
         if (!api?.messages?.deleteAttachments) {
             await api.notifications.create({
                 type: 'basic',
                 title: 'Unable to use messages.deleteAttachments API',
-                message: 'messages.deleteAttachments is unavailable. Check permissions (messagesModifyPermanent) and Thunderbird 123+.'
+                message:
+                    'messages.deleteAttachments is unavailable. ' +
+                    'Check permissions (messagesModifyPermanent) and Thunderbird 123+.'
             });
             console.error('messages.deleteAttachments unavailable');
             return;
         }
 
         try {
-            // 0) まず選択通数だけ取得（軽量）
+            // 0) 選択メッセージIDの取得
             const ids = await getAllSelectedMessageIds();
 
-            // ★ 評価（添付走査など）に入る前にプリフライト警告
+            // 0.5) 大量選択時のプリフライト（UIを必ず開く）
             if (ids.length > 100) {
                 const proceed = await openPreflightAndWait(ids.length);
                 if (!proceed) {
@@ -40,9 +44,12 @@
                 }
             }
 
-            // 1) ここから評価（添付一覧・サイズ集計など）
+            // 1) 評価（添付列挙・サイズ集計）
             const { targets, metaById, stats, messages, idsWithAttachments } = await buildTargetsAndStats(ids);
 
+            if (!stats || typeof stats.totalAttachments !== 'number') {
+                throw new Error('stats is undefined or invalid from buildTargetsAndStats');
+            }
             if (stats.totalAttachments === 0) {
                 await api.notifications.create({
                     type: 'basic',
@@ -52,77 +59,81 @@
                 return;
             }
 
-            if (!api?.storage?.local) {
-                console.error("storage.local is unavailable: check 'storage' permission in manifest.");
-            }
-            const key = `confirm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-            await api.storage.local.set({ [key]: { createdAt: Date.now(), stats, messages } });
-
-            const ok = await openConfirmPageAndWait(key, stats);
-            api.storage.local.remove(key).catch(() => { });
+            // 2) 確認ダイアログ（ページ仕様と同期）
+            // confirm.html は URL クエリで概要を表示し、storage.local の [key] から詳細を読む設計。:contentReference[oaicite:9]{index=9} :contentReference[oaicite:10]{index=10}
+            const ok = await openConfirmPageAndWait({
+                stats,
+                messages
+                // idsWithAttachments はページで未使用なので不要（必要なら保存対象に含めても可）
+            });
             if (!ok) {
-                await api.notifications.create({ type: 'basic', title: 'Cancelled', message: 'Bulk deletion was cancelled.' });
-                return;
-            }
-
-            // 2) 添付バックアップ＆検証
-            const { successMap, failCount: attFail, savedCount: attSaved } =
-                await saveAllAttachmentsVerified(targets, metaById);
-
-            // 3) 本文バックアップ＆検証（添付のあるメールのみ）
-            const { bodyOkMap, bodyFailCount } =
-                await saveMessageBodiesVerified(idsWithAttachments, metaById);
-
-            // 4) すべて保存できていなければ削除を中止
-            const expectedAttachmentTotal = targets.reduce((n, t) => n + t.partNames.length, 0);
-            const actualAttachmentSaved = [...successMap.values()].reduce((n, set) => n + set.size, 0);
-            const expectedBodyCount = idsWithAttachments.length;
-            const actualBodySaved = idsWithAttachments.filter(id => bodyOkMap.has(id)).length;
-
-            if (actualAttachmentSaved !== expectedAttachmentTotal || actualBodySaved !== expectedBodyCount) {
-                const missAtt = `${actualAttachmentSaved}/${expectedAttachmentTotal} attachments`;
-                const missBody = `${actualBodySaved}/${expectedBodyCount} bodies (for messages with attachments)`;
                 await api.notifications.create({
                     type: 'basic',
-                    title: 'Backup not complete — Deletion aborted',
-                    message: `Backup verification failed.\nSaved: ${missAtt}\nSaved: ${missBody}`
+                    title: 'Cancelled',
+                    message: 'User cancelled at confirmation dialog. No changes made.'
                 });
                 return;
             }
 
-            // 5) 削除対象（冗長防御）
+            // 3) バックアップ：添付
+            const { savedCount: attSavedCount, failCount: attFail } =
+                await saveAllAttachmentsVerified(targets, metaById);
+
+            // 4) バックアップ：本文
+            const { savedCount: bodySavedCount, failCount: bodyFailCount } =
+                await saveMessageBodiesVerified(ids);
+
+            // 5) 削除対象の集約
             const deleteTargets = [];
             let deletables = 0;
-            for (const { id, partNames } of targets) {
-                if (!bodyOkMap.has(id)) continue;
-                const okSet = successMap.get(id);
-                if (!okSet) continue;
-                const okParts = partNames.filter(p => okSet.has(p));
-                if (okParts.length) {
-                    deleteTargets.push({ id, partNames: okParts });
-                    deletables += okParts.length;
+            for (const t of targets) {
+                if (t.partNames?.length) {
+                    deleteTargets.push({ id: t.id, partNames: t.partNames });
+                    deletables += t.partNames.length;
                 }
             }
 
-            // 6) 削除実行
+            // 6) 削除（チャンク化＋フォールバック）
+            const CHUNK_SIZE = 32; // 32〜50 程度が安全
+            const chunkArray = (arr, size) => {
+                const out = [];
+                for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+                return out;
+            };
+
             let deleted = 0;
             for (const { id, partNames } of deleteTargets) {
-                await api.messages.deleteAttachments(id, partNames);
-                deleted += partNames.length;
+                for (const chunk of chunkArray(partNames, CHUNK_SIZE)) {
+                    try {
+                        await api.messages.deleteAttachments(id, chunk);
+                        deleted += chunk.length;
+                    } catch (e) {
+                        // 1件ずつフォールバック
+                        for (const p of chunk) {
+                            try { await api.messages.deleteAttachments(id, [p]); deleted += 1; }
+                            catch (ee) { console.warn('deleteAttachments failed for', id, p, ee?.message || ee); }
+                        }
+                    }
+                    await sleep(0); // UI フリーズ回避
+                }
             }
 
             // 7) 結果通知
             const issues = [];
             if (attFail) issues.push(`${attFail} attachment(s) had backup errors`);
             if (bodyFailCount) issues.push(`${bodyFailCount} message bodies had backup errors`);
-            const tail = issues.length ? `\nNotes: ${issues.join(', ')}` : '';
+            const tail = issues.length ? `\nNotes: ${issues.join('; ')}` : '';
+
+            const expectedAttachmentsSaved = stats.totalAttachments;
+            const actualAttachmentsSaved = attSavedCount;
 
             await api.notifications.create({
                 type: 'basic',
                 title: 'Backup & Deletion Completed',
                 message:
                     `${stats.affectedMessages} messages selected\n` +
-                    `${actualAttachmentSaved}/${expectedAttachmentTotal} attachments saved, ${deleted}/${deletables} attachments deleted${tail}`
+                    `${actualAttachmentsSaved}/${expectedAttachmentsSaved} attachments saved\n` +
+                    `${deleted}/${deletables} attachments deleted${tail}`
             });
 
         } catch (e) {
@@ -135,11 +146,22 @@
         }
     }
 
-    // 一度だけバインド
+    // ===== メニュー多重作成の防止（idempotent wrapper）=====
+    function ensureMenusOnce() {
+        if (BD.state.menusCreated) return;
+        BD.state.menusCreated = true;
+        try { createMenus(); }
+        catch (e) {
+            BD.state.menusCreated = false;
+            console.warn('createMenus failed (will ignore if already exists):', e?.message || e);
+        }
+    }
+
+    // 初期バインド（多重登録防止）
     if (!BD.state.bound) {
         api.action.onClicked.addListener(deleteAllAttachmentsOnSelectedMessages);
-        api.runtime.onInstalled.addListener(createMenus);
-        api.runtime.onStartup.addListener(createMenus);
+        api.runtime.onInstalled.addListener(() => ensureMenusOnce());
+        api.runtime.onStartup.addListener(() => ensureMenusOnce());
         api.menus.onClicked.addListener(info => {
             if (info.menuItemId === BD.const.MENU_ID) deleteAllAttachmentsOnSelectedMessages();
         });

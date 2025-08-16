@@ -134,3 +134,61 @@ button.ghost:hover {
 button.primary:hover {
     filter: brightness(1.08);
 }
+
+/* --- ここから追記（不足していたユーティリティ＆警告スタイル） --- */
+
+.subtitle {
+    color: var(--muted);
+    margin: 0 16px 12px;
+}
+
+.muted {
+    color: var(--muted);
+}
+
+.warn {
+    background: rgba(245, 158, 11, 0.12);
+    color: #92400e;
+    border: 1px solid #f59e0b;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin: 12px 16px;
+}
+
+.error {
+    background: rgba(239, 68, 68, 0.12);
+    color: #991b1b;
+    border: 1px solid #ef4444;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin: 12px 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+    .warn {
+        background: rgba(245, 158, 11, 0.12);
+        color: #f8d477;
+        border-color: #f59e0b;
+    }
+
+    .error {
+        background: rgba(239, 68, 68, 0.18);
+        color: #fca5a5;
+        border-color: #ef4444;
+    }
+}
+
+/* cards inside .stats */
+.stats .label {
+    color: var(--muted);
+}
+
+.stats .value {
+    font-weight: 700;
+}
+
+/* optional fine-tune for wide tables */
+.wide td,
+.wide th {
+    font-size: 12px;
+}
