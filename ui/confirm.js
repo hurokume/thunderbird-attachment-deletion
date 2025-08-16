@@ -3,60 +3,77 @@
     'use strict';
 
     const api = (typeof messenger !== 'undefined') ? messenger : browser;
+    const qs = (id) => document.getElementById(id);
 
     function humanSize(bytes) {
         const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        let b = Math.max(0, Number(bytes || 0));
-        let i = 0;
+        let b = Math.max(0, Number(bytes || 0)), i = 0;
         while (b >= 1024 && i < units.length - 1) { b /= 1024; i++; }
         return `${b.toFixed(i ? 1 : 0)} ${units[i]}`;
     }
 
-    function qs(id) { return document.getElementById(id); }
+    // 足りない場合は footer に動的に作る
+    function ensureBanner(id, klass) {
+        let el = qs(id);
+        if (!el) {
+            el = document.createElement('div');
+            el.id = id;
+            el.className = klass;
+            const footer = document.querySelector('footer') || document.body;
+            // ボタンの左側に出す
+            const buttons = footer.querySelector('.buttons');
+            if (buttons) footer.insertBefore(el, buttons);
+            else footer.appendChild(el);
+        }
+        return el;
+    }
+
+    function showError(text) {
+        const el = ensureBanner('error', 'error');
+        el.textContent = String(text || 'Error');
+        el.hidden = false;
+    }
+    function showWarn(text) {
+        const el = ensureBanner('warn', 'warn');
+        el.textContent = String(text || 'Warning');
+        el.hidden = false;
+    }
 
     function setSummaryFromQuery() {
         const params = new URLSearchParams(location.search);
-        qs('affected').textContent = params.get('affected') ?? '0';
-        qs('total').textContent = params.get('total') ?? '0';
-        qs('bytes').textContent = humanSize(params.get('bytes') ?? 0);
+        const affected = params.get('affected') ?? '0';
+        const total = params.get('total') ?? '0';
+        const bytes = params.get('bytes') ?? 0;
+        if (qs('affected')) qs('affected').textContent = affected;
+        if (qs('total')) qs('total').textContent = total;
+        if (qs('bytes')) qs('bytes').textContent = humanSize(bytes);
         return params.get('key') || '';
     }
 
     function renderExtSummary(extSummary) {
         const tbody = document.querySelector('#extTable tbody');
+        if (!tbody) return;
         tbody.innerHTML = '';
         if (!Array.isArray(extSummary) || extSummary.length === 0) {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td colspan="3" class="muted">No data</td>`;
-            tbody.appendChild(tr);
+            tbody.innerHTML = `<tr><td colspan="3" class="muted">No data</td></tr>`;
             return;
         }
         for (const row of extSummary) {
             const tr = document.createElement('tr');
-            tr.innerHTML = `
-        <td>${row.ext}</td>
-        <td class="num">${row.count}</td>
-        <td class="num">${humanSize(row.bytes)}</td>`;
+            tr.innerHTML = `<td>${row.ext}</td><td class="num">${row.count}</td><td class="num">${humanSize(row.bytes)}</td>`;
             tbody.appendChild(tr);
         }
     }
 
-    // ★ 添付 0 件のメールは一覧から除去
     function renderMessages(messages) {
         const tbody = document.querySelector('#msgTable tbody');
+        if (!tbody) return;
         tbody.innerHTML = '';
-
-        const filtered = Array.isArray(messages)
-            ? messages.filter(m => Array.isArray(m.attachments) && m.attachments.length > 0)
-            : [];
-
+        const filtered = Array.isArray(messages) ? messages.filter(m => (m.attachments || []).length > 0) : [];
         if (filtered.length === 0) {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td colspan="5" class="muted">No target messages</td>`;
-            tbody.appendChild(tr);
+            tbody.innerHTML = `<tr><td colspan="5" class="muted">No messages with attachments</td></tr>`;
             return;
         }
-
         for (const m of filtered) {
             const names = (m.attachments || []).map(a => `${a.name} : ${humanSize(a.size)}`);
             const tr = document.createElement('tr');
@@ -70,62 +87,69 @@
         }
     }
 
-    function showError(text) {
-        const el = qs('error');
-        el.textContent = text;
-        el.hidden = false;
-    }
-
     function disableButtons() {
-        qs('ok').disabled = true;
-        qs('cancel').disabled = true;
+        const ok = qs('ok'), ca = qs('cancel');
+        if (ok) ok.disabled = true;
+        if (ca) ca.disabled = true;
     }
 
     async function loadAndRender(key) {
         try {
             if (!key) {
-                showError('キーがありません。拡張から開かれたページではない可能性があります。');
+                showError('Missing key. This page may not have been opened by the extension.');
                 disableButtons();
                 return;
             }
-            const got = await api.storage.local.get(key);
+            if (!api?.storage?.local?.get) {
+                showError('Storage API is not available. Please add "storage" permission and reload the add-on.');
+                disableButtons();
+                // 背景にキャンセル通知（ある程度親切）
+                try { await api.runtime.sendMessage({ type: 'confirm-result', key, ok: false }); } catch { }
+                return;
+            }
+
+            const got = await api.storage.local.get(key).catch((e) => {
+                showError(`Failed to read preview data: ${e?.message || e}`);
+                return {};
+            });
             const data = got[key];
             if (!data || !data.stats) {
-                showError('プレビュー用データが見つかりません。再度実行してください。');
+                showError('Preview data not found. Please run again.');
                 disableButtons();
-                api.runtime.sendMessage({ type: 'confirm-result', key, ok: false }).catch(() => { });
+                try { await api.runtime.sendMessage({ type: 'confirm-result', key, ok: false }); } catch { }
                 return;
             }
+
+            const totalSelected = Array.isArray(data.messages) ? data.messages.length : 0;
+            if (totalSelected > 100) showWarn(`You selected ${totalSelected} messages. This may take a while to process.`);
+
             renderExtSummary(data.stats.extSummary || []);
             renderMessages(data.messages || []);
         } catch (e) {
             console.error('confirm: storage access failed', e);
-            showError('データの読み込みに失敗しました。');
+            showError('Failed to load data.');
             disableButtons();
-            api.runtime.sendMessage({ type: 'confirm-result', key, ok: false }).catch(() => { });
+            try { await api.runtime.sendMessage({ type: 'confirm-result', key, ok: false }); } catch { }
         }
     }
 
     function bindButtons(key) {
-        qs('ok').addEventListener('click', () => {
+        const ok = qs('ok'), ca = qs('cancel');
+        if (ok) ok.addEventListener('click', async () => {
             disableButtons();
-            api.runtime.sendMessage({ type: 'confirm-result', key, ok: true }).catch(() => { });
+            try { await api.runtime.sendMessage({ type: 'confirm-result', key, ok: true }); } catch { }
+            setTimeout(() => window.close(), 0);
         });
-        qs('cancel').addEventListener('click', () => {
+        if (ca) ca.addEventListener('click', async () => {
             disableButtons();
-            api.runtime.sendMessage({ type: 'confirm-result', key, ok: false }).catch(() => { });
+            try { await api.runtime.sendMessage({ type: 'confirm-result', key, ok: false }); } catch { }
+            setTimeout(() => window.close(), 0);
         });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        try {
-            const key = setSummaryFromQuery();
-            bindButtons(key);
-            loadAndRender(key);
-        } catch (e) {
-            console.error('confirm init failed', e);
-            showError('初期化に失敗しました。');
-            disableButtons();
-        }
+        const key = setSummaryFromQuery();
+        bindButtons(key);
+        loadAndRender(key);
     });
 })();

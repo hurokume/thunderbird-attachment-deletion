@@ -1,60 +1,91 @@
 <!doctype html>
-<html>
+<html lang="en">
 
 <head>
     <meta charset="utf-8" />
-    <title>Confirm Deletion</title>
+    <title>Bulk Attachment Deletion — Review</title>
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self';">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="confirm.css" />
 </head>
 
 <body>
     <header>
-        <h1>Delete attachments?</h1>
-        <p class="danger">This action cannot be undone.</p>
+        <h1>Review before deleting</h1>
+        <p class="subtitle">Check the targets and breakdown before removing attachments from the selected messages.</p>
     </header>
 
-    <section class="stats">
-        <div><strong>Affected messages</strong><span id="affected">-</span></div>
-        <div><strong>Attachments</strong><span id="total">-</span></div>
-        <div><strong>Total size</strong><span id="bytes">-</span></div>
+    <section class="cards">
+        <div class="card">
+            <div class="label">Messages with attachments</div>
+            <div id="affected" class="value">—</div>
+        </div>
+        <div class="card">
+            <div class="label">Total attachments</div>
+            <div id="total" class="value">—</div>
+        </div>
+        <div class="card">
+            <div class="label">Total size</div>
+            <div id="bytes" class="value">—</div>
+        </div>
     </section>
 
     <section>
-        <h2>By extension / type</h2>
-        <table class="grid" id="extTable">
+        <h2>By extension / size</h2>
+        <table id="extTable">
             <thead>
                 <tr>
                     <th>Extension</th>
-                    <th class="num">Count</th>
-                    <th class="num">Size</th>
+                    <th>Count</th>
+                    <th>Total</th>
                 </tr>
             </thead>
-            <tbody></tbody>
+            <tbody>
+                <tr>
+                    <td colspan="3" class="muted">Loading…</td>
+                </tr>
+            </tbody>
         </table>
     </section>
 
     <section>
-        <h2>Target messages</h2>
-        <table class="grid" id="msgTable">
+        <h2>Messages to process</h2>
+        <table id="msgTable" class="wide">
             <thead>
                 <tr>
                     <th>Subject</th>
                     <th>From</th>
-                    <th>Date</th>
-                    <th class="num">#Att</th>
-                    <th>Attachments (name : size)</th>
+                    <th>Received</th>
+                    <th class="num">Attachments</th>
+                    <th>Names / Sizes</th>
                 </tr>
             </thead>
-            <tbody></tbody>
+            <tbody>
+                <tr>
+                    <td colspan="5" class="muted">Loading…</td>
+                </tr>
+            </tbody>
         </table>
     </section>
 
-    <footer class="buttons">
-        <button id="ok" class="primary">Delete</button>
-        <button id="cancel" class="ghost">Cancel</button>
+    <footer>
+        <!-- Banners (kept hidden until used by confirm.js) -->
+        <div id="warn" class="warn" hidden></div>
+        <div id="error" class="error" hidden></div>
+
+        <div class="buttons">
+            <button id="cancel" class="secondary">Cancel</button>
+            <button id="ok" class="primary">Delete</button>
+        </div>
     </footer>
 
     <script src="confirm.js"></script>
+    <noscript>
+        <div class="error" style="margin:12px 20px;">
+            This page requires JavaScript. Please check your browser settings.
+        </div>
+    </noscript>
 </body>
 
 </html>
