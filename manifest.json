@@ -1,0 +1,35 @@
+{
+    "manifest_version": 3,
+    "name": "Bulk Attachment Deleter",
+    "version": "0.5.0",
+    "description": "Delete attachments from selected emails in Thunderbird with backup & verification.",
+    "author": "hurokume",
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "hurokume.bulk-attach-deleter@addons.thunderbird.net",
+            "strict_min_version": "128.0"
+        }
+    },
+    "permissions": [
+        "messagesRead",
+        "messagesModifyPermanent",
+        "menus",
+        "notifications",
+        "tabs",
+        "storage",
+        "downloads"
+    ],
+    "background": {
+        "scripts": [
+            "bg/globals.js",
+            "bg/utils.js",
+            "bg/downloads.js",
+            "bg/mail.js",
+            "bg/ui.js",
+            "bg/main.js"
+        ]
+    },
+    "action": {
+        "default_title": "Delete Attachments"
+    }
+}

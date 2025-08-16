@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Confirm Deletion</title>
+    <link rel="stylesheet" href="confirm.css" />
+</head>
+
+<body>
+    <header>
+        <h1>Delete attachments?</h1>
+        <p class="danger">This action cannot be undone.</p>
+    </header>
+
+    <section class="stats">
+        <div><strong>Affected messages</strong><span id="affected">-</span></div>
+        <div><strong>Attachments</strong><span id="total">-</span></div>
+        <div><strong>Total size</strong><span id="bytes">-</span></div>
+    </section>
+
+    <section>
+        <h2>By extension / type</h2>
+        <table class="grid" id="extTable">
+            <thead>
+                <tr>
+                    <th>Extension</th>
+                    <th class="num">Count</th>
+                    <th class="num">Size</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
+
+    <section>
+        <h2>Target messages</h2>
+        <table class="grid" id="msgTable">
+            <thead>
+                <tr>
+                    <th>Subject</th>
+                    <th>From</th>
+                    <th>Date</th>
+                    <th class="num">#Att</th>
+                    <th>Attachments (name : size)</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
+
+    <footer class="buttons">
+        <button id="ok" class="primary">Delete</button>
+        <button id="cancel" class="ghost">Cancel</button>
+    </footer>
+
+    <script src="confirm.js"></script>
+</body>
+
+</html>

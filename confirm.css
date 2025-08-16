@@ -1,0 +1,136 @@
+:root {
+    --fg: #1f2937;
+    --muted: #6b7280;
+    --danger: #b91c1c;
+    --bg: #fff;
+    --border: #e5e7eb;
+    --btn: #2563eb;
+    --btn-fg: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --danger: #fca5a5;
+        --bg: #0b0f14;
+        --border: #1f2937;
+        --btn: #3b82f6;
+        --btn-fg: #0b0f14;
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans";
+    color: var(--fg);
+    background: var(--bg);
+}
+
+header {
+    padding: 16px 16px 0;
+}
+
+h1 {
+    font-size: 18px;
+    margin: 0 0 6px;
+}
+
+h2 {
+    font-size: 14px;
+    margin: 16px 16px 8px;
+    color: var(--muted);
+}
+
+.danger {
+    color: var(--danger);
+    margin: 0;
+    font-weight: 600;
+}
+
+section {
+    padding: 0 16px;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.stats>div {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.grid {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.grid thead th {
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    padding: 8px 6px;
+}
+
+.grid tbody td {
+    border-top: 1px solid var(--border);
+    padding: 6px;
+    vertical-align: top;
+}
+
+.grid .num {
+    text-align: right;
+    width: 100px;
+    white-space: nowrap;
+}
+
+.attach-list {
+    color: var(--muted);
+}
+
+.buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+    margin-top: 12px;
+}
+
+button {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--fg);
+    cursor: pointer;
+    font-size: 14px;
+}
+
+button.primary {
+    background: var(--btn);
+    color: var(--btn-fg);
+    border-color: var(--btn);
+}
+
+button.ghost:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+button.primary:hover {
+    filter: brightness(1.08);
+}
