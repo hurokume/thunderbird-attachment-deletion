@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Preflight — Large Selection</title>
+    <link rel="stylesheet" href="confirm.css" />
+</head>
+
+<body>
+    <header>
+        <h1>Confirm before evaluation</h1>
+        <p class="subtitle">Before starting the evaluation and breakdown, please confirm you want to continue.</p>
+    </header>
+
+    <section style="padding:20px;">
+        <div style="font-size:22px; font-weight:700; margin:6px 0 2px;">
+            Selected messages: <span id="count">—</span>
+        </div>
+        <div class="muted">If you’ve selected more than 100, the evaluation and backup may take a while.</div>
+    </section>
+
+    <section style="padding:0 20px;">
+        <div class="warn" style="display:block;">
+            This step does not scan or delete anything yet.<br />
+            Click <b>Continue</b> to start evaluation and open the review screen.
+        </div>
+    </section>
+
+    <footer>
+        <div id="error" class="error" hidden></div>
+        <div class="buttons">
+            <button id="cancel" class="secondary">Cancel</button>
+            <button id="ok" class="primary">Continue</button>
+        </div>
+    </footer>
+
+    <script src="preflight.js"></script>
+    <noscript>
+        <div class="error" style="margin:12px 20px;">
+            This page requires JavaScript. Please check your browser settings.
+        </div>
+    </noscript>
+</body>
+
+</html>

@@ -10,7 +10,7 @@
         saveAllAttachmentsVerified,
         saveMessageBodiesVerified
     } = BD.mail;
-    const { openConfirmPageAndWait, createMenus } = BD.ui;
+    const { openConfirmPageAndWait, openPreflightAndWait, createMenus } = BD.ui;
 
     async function deleteAllAttachmentsOnSelectedMessages() {
         if (!api?.messages?.deleteAttachments) {
@@ -24,7 +24,23 @@
         }
 
         try {
+            // 0) まず選択通数だけ取得（軽量）
             const ids = await getAllSelectedMessageIds();
+
+            // ★ 評価（添付走査など）に入る前にプリフライト警告
+            if (ids.length > 100) {
+                const proceed = await openPreflightAndWait(ids.length);
+                if (!proceed) {
+                    await api.notifications.create({
+                        type: 'basic',
+                        title: 'Cancelled',
+                        message: 'Preflight cancelled. No evaluation or changes made.'
+                    });
+                    return;
+                }
+            }
+
+            // 1) ここから評価（添付一覧・サイズ集計など）
             const { targets, metaById, stats, messages, idsWithAttachments } = await buildTargetsAndStats(ids);
 
             if (stats.totalAttachments === 0) {
@@ -33,7 +49,6 @@
                     title: 'No deletable attachments',
                     message: 'No removable attachments were found in the selected messages.'
                 });
-                // 添付ゼロのメールに対しては本文の .txt も作成しないポリシーなので、ここで終了
                 return;
             }
 
@@ -50,16 +65,15 @@
                 return;
             }
 
-            // 1) 添付バックアップ＆検証
+            // 2) 添付バックアップ＆検証
             const { successMap, failCount: attFail, savedCount: attSaved } =
                 await saveAllAttachmentsVerified(targets, metaById);
 
-            // 2) 本文バックアップ＆検証
-            //    ★ 要件: 添付の無いメールには .txt を作成しない → idsWithAttachments のみ対象にする
+            // 3) 本文バックアップ＆検証（添付のあるメールのみ）
             const { bodyOkMap, bodyFailCount } =
                 await saveMessageBodiesVerified(idsWithAttachments, metaById);
 
-            // すべて保存できていなければ削除を中止（本文は「添付のあるメール」に限定）
+            // 4) すべて保存できていなければ削除を中止
             const expectedAttachmentTotal = targets.reduce((n, t) => n + t.partNames.length, 0);
             const actualAttachmentSaved = [...successMap.values()].reduce((n, set) => n + set.size, 0);
             const expectedBodyCount = idsWithAttachments.length;
@@ -76,13 +90,13 @@
                 return;
             }
 
-            // 3) 削除対象（冗長防御）
+            // 5) 削除対象（冗長防御）
             const deleteTargets = [];
             let deletables = 0;
             for (const { id, partNames } of targets) {
-                if (!bodyOkMap.has(id)) continue;               // 本文のバックアップができたメールのみ
+                if (!bodyOkMap.has(id)) continue;
                 const okSet = successMap.get(id);
-                if (!okSet) continue;                           // 添付のバックアップができたパーツのみ
+                if (!okSet) continue;
                 const okParts = partNames.filter(p => okSet.has(p));
                 if (okParts.length) {
                     deleteTargets.push({ id, partNames: okParts });
@@ -90,14 +104,14 @@
                 }
             }
 
-            // 4) 削除実行
+            // 6) 削除実行
             let deleted = 0;
             for (const { id, partNames } of deleteTargets) {
                 await api.messages.deleteAttachments(id, partNames);
                 deleted += partNames.length;
             }
 
-            // 5) 結果通知
+            // 7) 結果通知
             const issues = [];
             if (attFail) issues.push(`${attFail} attachment(s) had backup errors`);
             if (bodyFailCount) issues.push(`${bodyFailCount} message bodies had backup errors`);
