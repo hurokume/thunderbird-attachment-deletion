@@ -1,11 +1,11 @@
-'use strict';
-const { BD } = globalThis;
-const { api } = BD;
-const { SAVE_ROOT } = BD.const;
-const { timestampFromDate, sanitize } = BD.utils;
-const { downloadViaBlobAndVerify } = BD.downloads;
+// bg/mail.js
+(function (BD) {
+    'use strict';
 
-BD.mail = (() => {
+    const api = BD.api;
+    const { SAVE_ROOT } = BD.const;
+    const { timestampFromDate, sanitize } = BD.utils;
+    const { downloadViaBlobAndVerify } = BD.downloads;
 
     async function getAllSelectedMessageIds() {
         let page = await api.mailTabs.getSelectedMessages();
@@ -17,9 +17,65 @@ BD.mail = (() => {
         return ids;
     }
 
+    // ---- 受信日時の決定を強化 ----
+    function coerceDate(v) {
+        if (!v && v !== 0) return null;
+        if (v instanceof Date) return isNaN(v) ? null : v;
+        if (typeof v === 'number') {
+            const ms = v < 1e11 ? v * 1000 : v;
+            const d = new Date(ms);
+            return isNaN(d) ? null : d;
+        }
+        if (typeof v === 'string') {
+            const d = new Date(v);
+            return isNaN(d) ? null : d;
+        }
+        try {
+            const d = new Date(v);
+            return isNaN(d) ? null : d;
+        } catch { return null; }
+    }
+
+    function parseReceivedLineForDate(line) {
+        if (!line) return null;
+        // Received: ... ; Tue, 13 Aug 2024 09:31:15 +0900 (JST)
+        const semi = line.lastIndexOf(';');
+        const candidate = (semi >= 0 ? line.slice(semi + 1) : String(line)).trim();
+        const d = new Date(candidate);
+        return isNaN(d) ? null : d;
+    }
+
+    async function deriveReceivedDate(id, fallbackDate) {
+        try {
+            const full = await api.messages.getFull(id);
+            const headers = full && full.headers;
+            if (headers) {
+                let recArr = headers['received'] || headers['Received'];
+                if (recArr && !Array.isArray(recArr)) recArr = [recArr];
+                if (Array.isArray(recArr) && recArr.length) {
+                    for (const line of recArr) {
+                        const d = parseReceivedLineForDate(line);
+                        if (d) return d;
+                    }
+                }
+                let hDate = headers['date'] || headers['Date'];
+                if (hDate && !Array.isArray(hDate)) hDate = [hDate];
+                if (Array.isArray(hDate) && hDate.length) {
+                    const d = coerceDate(hDate[0]);
+                    if (d) return d;
+                }
+            }
+        } catch (_) { /* ignore */ }
+
+        const d3 = coerceDate(fallbackDate);
+        if (d3) return d3;
+
+        return new Date();
+    }
+
     /**
      * 析出: 削除候補と統計(UI用)
-     * metaById: { subject, stamp }  ※stampは受信日時 (yyyymmdd-hhmmss)
+     * metaById: { subject, stampDate: Date, stamp: 'yyyymmdd-hhmmss' }
      */
     async function buildTargetsAndStats(messageIds) {
         let totalBytes = 0, totalCount = 0, affected = 0;
@@ -30,8 +86,10 @@ BD.mail = (() => {
 
         for (const id of messageIds) {
             const meta = await api.messages.get(id);
-            const atts = await api.messages.listAttachments(id);
+            const recvDate = await deriveReceivedDate(id, meta?.date);
+            const stamp = timestampFromDate(recvDate);
 
+            const atts = await api.messages.listAttachments(id);
             const usable = atts
                 .filter(a => a.contentType !== 'text/x-moz-deleted')
                 .map(a => ({
@@ -41,18 +99,16 @@ BD.mail = (() => {
                     partName: a.partName
                 }));
 
-            const stamp = meta?.date ? timestampFromDate(meta.date) : timestampFromDate(new Date());
-
             if (usable.length) {
                 affected++;
                 targets.push({ id, partNames: usable.map(a => a.partName) });
-                metaById.set(id, { subject: meta.subject || '(no subject)', stamp });
+                metaById.set(id, { subject: meta.subject || '(no subject)', stampDate: recvDate, stamp });
 
                 messages.push({
                     id,
                     subject: meta.subject || '(no subject)',
                     author: meta.author || '',
-                    date: meta.date ? new Date(meta.date).toLocaleString() : '',
+                    date: recvDate.toLocaleString(),
                     attachments: usable.map(({ name, size, contentType }) => ({ name, size, contentType }))
                 });
 
@@ -69,8 +125,16 @@ BD.mail = (() => {
                     byExt.set(ext, cur);
                 }
             } else {
-                // 添付なしでも本文保存に使うため subject/stamp を保持
-                if (!metaById.has(id)) metaById.set(id, { subject: meta.subject || '(no subject)', stamp });
+                if (!metaById.has(id)) {
+                    metaById.set(id, { subject: meta.subject || '(no subject)', stampDate: recvDate, stamp });
+                }
+                messages.push({
+                    id,
+                    subject: meta.subject || '(no subject)',
+                    author: meta.author || '',
+                    date: recvDate.toLocaleString(),
+                    attachments: []
+                });
             }
         }
 
@@ -83,11 +147,11 @@ BD.mail = (() => {
             metaById,
             stats: { affectedMessages: affected, totalAttachments: totalCount, totalBytes, extSummary },
             messages,
-            idsWithAttachments: targets.map(t => t.id) // ★ 添付のあるメッセージのID一覧
+            idsWithAttachments: targets.map(t => t.id)
         };
     }
 
-    // 本文抽出（text/plain 優先、次点で text/html をテキスト化、最後に getFull フォールバック）
+    // 本文抽出
     async function extractPlainBody(id) {
         try {
             const parts = await api.messages.listInlineTextParts(id);
@@ -122,18 +186,18 @@ BD.mail = (() => {
         return '';
     }
 
-    // 添付を保存（検証つき）— 件別に try/catch で継続
+    // 添付を保存（検証つき）
     async function saveAllAttachmentsVerified(targets, metaById) {
         if (!api?.downloads?.download) throw new Error("downloads API unavailable (missing 'downloads' permission?)");
         const successMap = new Map();
         let failCount = 0, savedCount = 0;
 
         for (const { id, partNames } of targets) {
-            const meta = metaById.get(id) || { subject: 'no_subject', stamp: timestampFromDate(new Date()) };
-            const title = sanitize(meta.subject);
-            const stamp = meta.stamp;
-            const okSet = new Set();
+            const meta = metaById.get(id);
+            const title = sanitize(meta?.subject || 'no_subject');
+            const stamp = meta?.stamp;
 
+            const okSet = new Set();
             for (const partName of partNames) {
                 try {
                     const file = await api.messages.getAttachmentFile(id, partName);
@@ -145,26 +209,24 @@ BD.mail = (() => {
                 } catch (e) {
                     failCount++;
                     console.warn('attachment save error:', e?.message || e);
-                    // 続行
                 }
             }
-
             if (okSet.size > 0) successMap.set(id, okSet);
         }
 
         return { successMap, failCount, savedCount };
     }
 
-    // 本文を保存（検証つき）— 件別に try/catch で継続
+    // 本文を保存（検証つき）
     async function saveMessageBodiesVerified(messageIds, metaById) {
         const bodyOkMap = new Map();
         let bodyFailCount = 0;
 
         for (const id of messageIds) {
             try {
-                const meta = metaById.get(id) || { subject: 'no_subject', stamp: timestampFromDate(new Date()) };
-                const title = sanitize(meta.subject);
-                const stamp = meta.stamp;
+                const meta = metaById.get(id);
+                const title = sanitize(meta?.subject || 'no_subject');
+                const stamp = meta?.stamp;
 
                 const text = await extractPlainBody(id);
                 const logicalPath = `${SAVE_ROOT}/${stamp}_${title}.txt`;
@@ -176,18 +238,17 @@ BD.mail = (() => {
             } catch (e) {
                 bodyFailCount++;
                 console.warn('body save error:', e?.message || e);
-                // 続行
             }
         }
 
         return { bodyOkMap, bodyFailCount };
     }
 
-    return {
+    BD.mail = {
         getAllSelectedMessageIds,
         buildTargetsAndStats,
         extractPlainBody,
         saveAllAttachmentsVerified,
         saveMessageBodiesVerified
     };
-})();
+})(globalThis.BD);

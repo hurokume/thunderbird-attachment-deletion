@@ -1,7 +1,7 @@
-'use strict';
-const { BD } = globalThis;
+// bg/utils.js
+(function (BD) {
+    'use strict';
 
-BD.utils = (() => {
     function pad2(n) { return String(n).padStart(2, '0'); }
     function timestampFromDate(d) {
         const x = (d instanceof Date) ? d : new Date(d);
@@ -23,5 +23,6 @@ BD.utils = (() => {
         const ext = (dot > 0) ? name.slice(dot) : '';
         return `${dir}${base}${suffix}${ext}`;
     }
-    return { pad2, timestampFromDate, sanitize, humanSize, sleep, addSuffixToPath };
-})();
+
+    BD.utils = { pad2, timestampFromDate, sanitize, humanSize, sleep, addSuffixToPath };
+})(globalThis.BD);

@@ -1,11 +1,10 @@
 // bg/downloads.js
-'use strict';
-const { BD } = globalThis;
-const { api } = BD;
-const { MAX_DOWNLOAD_RETRIES, RETRY_BACKOFF_MS } = BD.const;
-const { sleep, addSuffixToPath } = BD.utils;
+(function (BD) {
+    'use strict';
 
-BD.downloads = (() => {
+    const api = BD.api;
+    const { MAX_DOWNLOAD_RETRIES, RETRY_BACKOFF_MS } = BD.const;
+    const { sleep, addSuffixToPath } = BD.utils;
 
     function waitForDownloadComplete(id) {
         return new Promise((resolve, reject) => {
@@ -21,9 +20,8 @@ BD.downloads = (() => {
         });
     }
 
-    // ★ 完了＋存在確認を厳格化（exists===true を必須に。未定義は失敗扱い）
+    // 完了＋存在確認を厳格化
     async function verifyExistsStrictById(id) {
-        // 高速完了の取りこぼしに備えて数回ポーリング
         for (let i = 0; i < 3; i++) {
             const [rec] = await api.downloads.search({ id });
             if (rec && rec.state === 'complete' && rec.exists === true) return true;
@@ -59,5 +57,5 @@ BD.downloads = (() => {
         return { ok: false };
     }
 
-    return { waitForDownloadComplete, downloadViaBlobAndVerify };
-})();
+    BD.downloads = { waitForDownloadComplete, downloadViaBlobAndVerify };
+})(globalThis.BD);

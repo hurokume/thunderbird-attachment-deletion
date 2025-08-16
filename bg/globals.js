@@ -1,4 +1,3 @@
-// bg/globals.js
 'use strict';
 // 共有名前空間
 const BD = globalThis.BD || {};

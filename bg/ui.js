@@ -1,9 +1,9 @@
-'use strict';
-const { BD } = globalThis;
-const { api } = BD;
-const { MENU_ID } = BD.const;
+// bg/ui.js
+(function (BD) {
+    'use strict';
 
-BD.ui = (() => {
+    const api = BD.api;
+    const { MENU_ID } = BD.const;
 
     function openConfirmPageAndWait(key, stats) {
         return new Promise(async (resolve) => {
@@ -18,7 +18,8 @@ BD.ui = (() => {
             };
             api.runtime.onMessage.addListener(onMsg);
 
-            const url = `confirm.html?key=${encodeURIComponent(key)}&affected=${encodeURIComponent(stats.affectedMessages)}&total=${encodeURIComponent(stats.totalAttachments)}&bytes=${encodeURIComponent(stats.totalBytes)}`;
+            const base = api.runtime.getURL('ui/confirm.html');
+            const url = `${base}?key=${encodeURIComponent(key)}&affected=${encodeURIComponent(stats.affectedMessages)}&total=${encodeURIComponent(stats.totalAttachments)}&bytes=${encodeURIComponent(stats.totalBytes)}`;
             await api.windows.create({ url, type: 'popup', width: 680, height: 560 });
         });
     }
@@ -27,11 +28,9 @@ BD.ui = (() => {
         if (api?.menus?.create) {
             try {
                 api.menus.create({ id: MENU_ID, title: 'Delete attachments from selection…', contexts: ['message_list'] });
-            } catch (_) {
-                // 既に作成済みの場合などは無視
-            }
+            } catch (_) { /* already exists */ }
         }
     }
 
-    return { openConfirmPageAndWait, createMenus };
-})();
+    BD.ui = { openConfirmPageAndWait, createMenus };
+})(globalThis.BD);
