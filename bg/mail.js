@@ -186,9 +186,14 @@
         return '';
     }
 
-    // 添付を保存（検証つき）
+    // 添付を保存（検証つき） — 各ファイルごとに1秒待機
     async function saveAllAttachmentsVerified(targets, metaById) {
         if (!api?.downloads?.download) throw new Error("downloads API unavailable (missing 'downloads' permission?)");
+
+        // 待機ヘルパ（ローカル定義）
+        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        const PER_FILE_DELAY_MS = 1000; // 待機時間（必要に応じて変更）
+
         const successMap = new Map();
         let failCount = 0, savedCount = 0;
 
@@ -198,7 +203,9 @@
             const stamp = meta?.stamp;
 
             const okSet = new Set();
-            for (const partName of partNames) {
+
+            for (let i = 0; i < partNames.length; i++) {
+                const partName = partNames[i];
                 try {
                     const file = await api.messages.getAttachmentFile(id, partName);
                     const orig = sanitize(file.name || 'attachment');
@@ -209,8 +216,14 @@
                 } catch (e) {
                     failCount++;
                     console.warn('attachment save error:', e?.message || e);
+                } finally {
+                    // 最後の1件以外は1秒待機
+                    if (i < partNames.length - 1) {
+                        await delay(PER_FILE_DELAY_MS);
+                    }
                 }
             }
+
             if (okSet.size > 0) successMap.set(id, okSet);
         }
 

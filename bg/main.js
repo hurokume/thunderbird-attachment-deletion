@@ -93,28 +93,47 @@
                 }
             }
 
-            // 6) 削除（チャンク化＋フォールバック）
-            const CHUNK_SIZE = 32; // 32〜50 程度が安全
-            const chunkArray = (arr, size) => {
-                const out = [];
-                for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-                return out;
+            // 6) 削除（チャンク化＋再解決＋フォールバック）
+            const CHUNK_SIZE = 16; // 小さめが安全（16〜32 推奨）
+            const parsePart = (s) => s.split('.').map(n => parseInt(n, 10)).filter(Number.isFinite);
+            // “深い/大きい順” に消すと再番号付けの影響を受けにくい
+            const cmpPartDesc = (a, b) => {
+                const A = parsePart(a), B = parsePart(b);
+                const L = Math.max(A.length, B.length);
+                for (let i = 0; i < L; i++) {
+                    const av = A[i] ?? -1, bv = B[i] ?? -1;
+                    if (av !== bv) return bv - av;       // 大きい方を先に
+                }
+                return B.length - A.length;
             };
 
             let deleted = 0;
-            for (const { id, partNames } of deleteTargets) {
-                for (const chunk of chunkArray(partNames, CHUNK_SIZE)) {
+            for (const { id, partNames: original } of deleteTargets) {
+                // まだ削除していない “狙いリスト”
+                let remaining = [...original];
+
+                while (remaining.length) {
+                    // いま実在する添付の partName を取り直す
+                    const live = new Set((await BD.api.messages.listAttachments(id)).map(a => a.partName)); // Thunderbid messages API
+                    // まだ残っていて、今も存在するものを抽出
+                    const candidates = remaining.filter(p => live.has(p)).sort(cmpPartDesc);
+                    if (!candidates.length) break;
+
+                    const chunk = candidates.slice(0, CHUNK_SIZE);
                     try {
-                        await api.messages.deleteAttachments(id, chunk);
+                        await BD.api.messages.deleteAttachments(id, chunk);
                         deleted += chunk.length;
                     } catch (e) {
-                        // 1件ずつフォールバック
+                        // 失敗時は 1 件ずつフォールバック
                         for (const p of chunk) {
-                            try { await api.messages.deleteAttachments(id, [p]); deleted += 1; }
+                            try { await BD.api.messages.deleteAttachments(id, [p]); deleted += 1; }
                             catch (ee) { console.warn('deleteAttachments failed for', id, p, ee?.message || ee); }
                         }
                     }
-                    await sleep(0); // UI フリーズ回避
+                    // 今回処理したものを remaining から除去
+                    const done = new Set(chunk);
+                    remaining = remaining.filter(p => !done.has(p));
+                    await sleep(0); // イベントループに譲る（UI 固まり対策）
                 }
             }
 
