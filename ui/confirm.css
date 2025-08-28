@@ -98,9 +98,35 @@ section {
     white-space: nowrap;
 }
 
+/* 旧実装との後方互換（残してOK） */
 .attach-list {
     color: var(--muted);
 }
+
+/* --- ここから追記: テンプレート化後の .names 列の見た目調整 --- */
+.names {
+    color: var(--muted);
+}
+
+.names .att {
+    white-space: nowrap;
+    /* 1ファイル1行で表示 */
+}
+
+.names .name {
+    /* 名前が極端に長い場合の視認性向上（必要に応じて外してOK） */
+    display: inline-block;
+    max-width: 40vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+}
+
+.names .size {
+    margin-left: 0.25rem;
+}
+
+/* --- 追記ここまで --- */
 
 .buttons {
     display: flex;
@@ -135,7 +161,7 @@ button.primary:hover {
     filter: brightness(1.08);
 }
 
-/* --- ここから追記（不足していたユーティリティ＆警告スタイル） --- */
+/* --- ここから（前回追記ぶんの維持） --- */
 
 .subtitle {
     color: var(--muted);

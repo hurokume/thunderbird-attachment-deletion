@@ -16,7 +16,6 @@
         <p class="subtitle">Check the targets and breakdown before removing attachments from the selected messages.</p>
     </header>
 
-    <!-- cards -> stats に変更 -->
     <section class="stats">
         <div class="card">
             <div class="label">Messages with attachments</div>
@@ -34,7 +33,6 @@
 
     <section>
         <h2>By extension / size</h2>
-        <!-- .grid を追加 -->
         <table id="extTable" class="grid">
             <thead>
                 <tr>
@@ -53,7 +51,6 @@
 
     <section>
         <h2>Messages to process</h2>
-        <!-- wide に加えて .grid を付与 -->
         <table id="msgTable" class="grid wide">
             <thead>
                 <tr>
@@ -71,6 +68,38 @@
             </tbody>
         </table>
     </section>
+
+    <!-- ===== Templates for safe DOM construction (used by confirm.js) ===== -->
+    <template id="ext-row">
+        <tr>
+            <td class="ext"></td>
+            <td class="num count"></td>
+            <td class="num bytes"></td>
+        </tr>
+    </template>
+
+    <template id="msg-row">
+        <tr>
+            <td class="subject"></td>
+            <td class="from"></td>
+            <td class="date"></td>
+            <td class="num attach-count"></td>
+            <td class="names"></td> <!-- previous .attach-list equivalent -->
+        </tr>
+    </template>
+
+    <template id="empty-row-3">
+        <tr>
+            <td class="muted" colspan="3">No data</td>
+        </tr>
+    </template>
+
+    <template id="empty-row-5">
+        <tr>
+            <td class="muted" colspan="5">No messages with attachments</td>
+        </tr>
+    </template>
+    <!-- ===== End templates ===== -->
 
     <footer>
         <!-- Banners (kept hidden until used by confirm.js) -->
