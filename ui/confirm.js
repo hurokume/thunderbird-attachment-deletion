@@ -1,4 +1,4 @@
-// ui/confirm.js (innerHTML 廃止版：<template> + createElement/textContent 使用)
+// ui/confirm.js (改良版：innerHTML廃止＋<template>利用＋安全なクローズ)
 (() => {
     'use strict';
 
@@ -14,7 +14,6 @@
         return `${b.toFixed(i ? 1 : 0)} ${units[i]}`;
     }
 
-    // footer にバナー（error / warn）が無ければ作る
     function ensureBanner(id, klass) {
         let el = qs(id);
         if (!el) {
@@ -40,14 +39,12 @@
         el.hidden = false;
     }
 
-    // node を空にする（innerHTML 不使用）
     function clearNode(node) {
         if (!node) return;
         if (typeof node.replaceChildren === 'function') node.replaceChildren();
         else { while (node.firstChild) node.removeChild(node.firstChild); }
     }
 
-    // <template id="..."> を 1 行 (tr) として複製。無い場合は null
     function cloneTemplateRow(tmplId) {
         const t = document.getElementById(tmplId);
         if (t && t.content) {
@@ -78,7 +75,6 @@
         clearNode(tbody);
 
         const rows = Array.isArray(extSummary) ? extSummary.slice() : [];
-        // bytes 降順 → count 降順 → ext 昇順（任意）
         rows.sort((a, b) => (Number(b.bytes) - Number(a.bytes)) ||
             (Number(b.count) - Number(a.count)) ||
             String(a.ext ?? '').localeCompare(String(b.ext ?? '')));
@@ -104,7 +100,6 @@
             let tdCount = tr.querySelector('.count');
             let tdBytes = tr.querySelector('.bytes');
 
-            // テンプレが無い場合のフォールバック生成
             if (!tdExt) { tdExt = document.createElement('td'); tr.appendChild(tdExt); }
             if (!tdCount) { tdCount = document.createElement('td'); tdCount.classList.add('num'); tr.appendChild(tdCount); }
             if (!tdBytes) { tdBytes = document.createElement('td'); tdBytes.classList.add('num'); tr.appendChild(tdBytes); }
@@ -148,10 +143,8 @@
             let tdFrom = tr.querySelector('.from');
             let tdDate = tr.querySelector('.date');
             let tdCount = tr.querySelector('.attach-count');
-            // 互換：旧HTMLは .attach-list を使っていた
             let tdNames = tr.querySelector('.names') || tr.querySelector('.attach-list');
 
-            // テンプレが無い場合のフォールバック列を用意
             if (!tdSubj) { tdSubj = document.createElement('td'); tr.appendChild(tdSubj); }
             if (!tdFrom) { tdFrom = document.createElement('td'); tr.appendChild(tdFrom); }
             if (!tdDate) { tdDate = document.createElement('td'); tr.appendChild(tdDate); }
@@ -163,7 +156,6 @@
             tdDate.textContent = String(m.date || '');
             tdCount.textContent = String((m.attachments || []).length);
 
-            // 添付名リストを安全に構築（<br> ではなく div/span で積む）
             clearNode(tdNames);
             for (const a of (m.attachments || [])) {
                 const line = document.createElement('div');
@@ -226,24 +218,18 @@
             renderExtSummary(data.stats.extSummary || []);
             renderMessages(data.messages || []);
 
-            // --- 上部サマリ（affected / total / bytes）を再計算して上書き ---
-            const setText = (id, txt) => {
-                const el = document.getElementById(id);
-                if (el) el.textContent = String(txt);
-            };
+            // 上部サマリ（affected / total / bytes）を再計算
+            const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = String(txt); };
 
-            // 件数（affected）
             const affectedVal = Number(data.stats?.affectedMessages ?? 0);
             setText('affected', affectedVal);
 
-            // 添付総数（total）
             let totalVal = Number(data.stats?.totalAttachments ?? 0);
             if (!totalVal && Array.isArray(data.messages)) {
                 totalVal = data.messages.reduce((s, m) => s + (m?.attachments?.length || 0), 0);
             }
             setText('total', totalVal);
 
-            // 総バイト数（bytes）
             let bytesVal = Number(data.stats?.totalSize ?? 0);
             if (!bytesVal && Array.isArray(data.stats?.extSummary)) {
                 bytesVal = data.stats.extSummary.reduce((s, r) => s + (Number(r?.bytes) || 0), 0);
@@ -254,7 +240,6 @@
                     , 0);
             }
             setText('bytes', humanSize(bytesVal));
-            // --- 追記ここまで ---
 
         } catch (e) {
             console.error('confirm: storage access failed', e);
@@ -268,15 +253,34 @@
 
     function bindButtons(key) {
         const ok = qs('ok'), ca = qs('cancel');
+
+        async function closeSelfSafely() {
+            // Close self safely via Tabs/Windows API (to prevent ownerGlobal null)
+            try {
+                if (api?.tabs?.getCurrent) {
+                    const tab = await api.tabs.getCurrent();
+                    if (tab?.id) { await api.tabs.remove(tab.id); return; }
+                }
+            } catch { }
+            try {
+                if (api?.windows?.getCurrent) {
+                    const win = await api.windows.getCurrent();
+                    if (win?.id) { await api.windows.remove(win.id); return; }
+                }
+            } catch { }
+            try { window.close(); } catch { }
+        }
+
         if (ok) ok.addEventListener('click', async () => {
             disableButtons();
             try { await api.runtime.sendMessage({ type: 'confirm-result', key, ok: true }); } catch { }
-            setTimeout(() => window.close(), 0);
+            closeSelfSafely();
         });
+
         if (ca) ca.addEventListener('click', async () => {
             disableButtons();
             try { await api.runtime.sendMessage({ type: 'confirm-result', key, ok: false }); } catch { }
-            setTimeout(() => window.close(), 0);
+            closeSelfSafely();
         });
     }
 

@@ -21,7 +21,8 @@
         "menus",
         "notifications",
         "downloads",
-        "storage"
+        "storage",
+        "tabs"
     ],
     "background": {
         "scripts": [
