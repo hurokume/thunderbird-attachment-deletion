@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Bulk Attachment Deleter",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "description": "Delete attachments from selected emails in Thunderbird.",
     "author": "hurokume",
     "icons": {
