@@ -1,13 +1,15 @@
 {
     "manifest_version": 3,
     "name": "Bulk Attachment Deleter",
-    "version": "0.1.4",
-    "description": "Backup and delete attachments from selected emails in Thunderbird.",
+    "version": "0.1.3",
+    "description": "Delete attachments from selected emails in Thunderbird.",
     "author": "hurokume",
     "icons": {
         "16": "images/icon.svg",
         "32": "images/icon.svg",
-        "64": "images/icon.svg"
+        "48": "images/icon.svg",
+        "64": "images/icon.svg",
+        "128": "images/icon.svg"
     },
     "browser_specific_settings": {
         "gecko": {
@@ -21,13 +23,13 @@
         "menus",
         "notifications",
         "downloads",
-        "storage",
-        "tabs"
+        "storage"
     ],
     "background": {
         "scripts": [
             "bg/globals.js",
             "bg/utils.js",
+            "bg/settings.js",
             "bg/downloads.js",
             "bg/ui.js",
             "bg/mail.js",
@@ -38,8 +40,12 @@
     "action": {
         "default_title": "Delete Attachments",
         "default_icon": {
-            "16": "images/icon.svg",
-            "32": "images/icon.svg"
+            "16": "icons/icon.svg",
+            "32": "icons/icon.svg"
         }
+    },
+    "options_ui": {
+        "page": "ui/options.html",
+        "open_in_tab": true
     }
 }

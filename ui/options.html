@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Bulk Attachment Deleter — Options</title>
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self'; style-src 'self'; script-src 'self';">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="options.css" />
+</head>
+
+<body>
+    <header>
+        <h1 id="title">設定</h1>
+        <p class="subtitle" id="subtitle">保存先フォルダ（Downloads 下）を指定します。</p>
+    </header>
+
+    <main>
+        <label class="field">
+            <span id="labelDir">保存先ディレクトリ</span>
+            <input id="dir" type="text" spellcheck="false" autocomplete="off" />
+            <small id="hint">Downloads フォルダ配下のサブフォルダです。例: MyBackups/Attachments</small>
+        </label>
+
+        <div class="preview" id="preview"></div>
+
+        <div class="actions">
+            <button id="save" class="primary">保存</button>
+            <button id="reset" class="secondary">既定に戻す</button>
+        </div>
+
+        <div id="msg" class="msg" hidden></div>
+        <div id="err" class="err" hidden></div>
+    </main>
+
+    <script src="options.js"></script>
+</body>
+
+</html>

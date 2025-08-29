@@ -1,9 +1,13 @@
 // bg/mail.js
+// 添付ファイルの評価と保存（本文保存は行わない）
+// - 保存先は BD.settings.getSaveRoot() で取得（ユーザー設定可能）
+// - ファイル名/件名はサニタイズして安全化
+// - 各添付ファイル保存の間に 1 秒スリープ（finally）
+
 (function (BD) {
     'use strict';
 
     const api = BD.api;
-    const { SAVE_ROOT } = BD.const;
     const { timestampFromDate, sanitizePathSegment, sanitizeFilename } = BD.utils;
     const { downloadViaBlobAndVerify } = BD.downloads;
 
@@ -37,6 +41,7 @@
 
     function parseReceivedLineForDate(line) {
         if (!line) return null;
+        // Received: ... ; Tue, 13 Aug 2024 09:31:15 +0900 (JST)
         const semi = line.lastIndexOf(';');
         const candidate = (semi >= 0 ? line.slice(semi + 1) : String(line)).trim();
         const d = new Date(candidate);
@@ -84,6 +89,16 @@
 
     /* ========= build targets & stats ========= */
 
+    /**
+     * @param {Array<number|string>} messageIds
+     * @returns {{
+     *   targets: Array<{id:number|string, partNames:string[]}>,
+     *   metaById: Map<any, {subject:string, stampDate:Date, stamp:string}>,
+     *   stats: { affectedMessages:number, totalAttachments:number, totalBytes:number, totalSize:number, extSummary:Array<{ext:string,count:number,bytes:number}> },
+     *   messages: Array<{id:any,subject:string,author:string,date:string,attachments:Array<{name:string,size:number,contentType:string}>}>,
+     *   idsWithAttachments: Array<any>
+     * }}
+     */
     async function buildTargetsAndStats(messageIds) {
         let totalBytes = 0, totalCount = 0, affected = 0;
         const targets = [];
@@ -162,12 +177,22 @@
 
     /* ========= save: attachments (with verify & per-file delay) ========= */
 
-    // 添付を保存（検証つき） — 各ファイルごとに1秒待機（finally）
+    /**
+     * 添付を保存（検証つき）
+     * - 保存先は設定のルート配下：{root}/{stamp}_{title}_{filename}
+     * - 1ファイル保存ごとに 1000ms 待機
+     * @param {{id:any, partNames:string[]}[]} targets
+     * @param {Map|Object} metaById
+     * @returns {{successMap: Map<any, Set<string>>, failCount:number, savedCount:number}}
+     */
     async function saveAllAttachmentsVerified(targets, metaById) {
         if (!api?.downloads?.download) throw new Error("downloads API unavailable (missing 'downloads' permission?)");
 
         const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
         const PER_FILE_DELAY_MS = 1000;
+
+        // ユーザー設定の保存先ルート（Downloads 下のサブディレクトリ）を取得
+        const root = await BD.settings.getSaveRoot();
 
         const successMap = new Map();
         let failCount = 0, savedCount = 0;
@@ -186,7 +211,9 @@
                     const file = await api.messages.getAttachmentFile(id, partName);
                     // 実ファイル名は拡張子保持でサニタイズ
                     const orig = sanitizeFilename(file?.name || 'attachment', { max: 180 });
-                    const logicalPath = `${SAVE_ROOT}/${stamp}_${title}_${orig}`;
+
+                    // 設定されたフォルダ配下に保存
+                    const logicalPath = `${root}/${stamp}_${title}_${orig}`;
 
                     const res = await downloadViaBlobAndVerify(file, logicalPath);
                     if (res?.ok) { okSet.add(partName); savedCount++; }
