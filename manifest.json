@@ -37,13 +37,6 @@
             "bg/main.js"
         ]
     },
-    "action": {
-        "default_title": "Delete Attachments",
-        "default_icon": {
-            "16": "icons/icon.svg",
-            "32": "icons/icon.svg"
-        }
-    },
     "options_ui": {
         "page": "ui/options.html",
         "open_in_tab": true

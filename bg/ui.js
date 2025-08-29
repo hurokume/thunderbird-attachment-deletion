@@ -1,189 +1,246 @@
 // bg/ui.js
+// - 確認フォーム（confirm.html）: openConfirmPageAndWait
+// - 進捗フォーム（progress.html）: openProgressPage（Cancel対応）
+// - 多量選択時プリフライト: openPreflightAndWait（ページ無ければ true）
+// - 右クリックメニュー: createMenus（i18n & 選択件数に応じた動的タイトル）
+
 (function (BD) {
     'use strict';
 
-    const api = BD.api;
-    const CONST = BD.const || {};
-    const MENU_ID = CONST.MENU_ID || 'bulk-del';
-
-    // BD.ui の名前空間を確実に用意
-    const UI = BD.ui || (BD.ui = {});
-
-    // 一意キーを生成（confirm/preflight の往復識別用）
-    function genKey(prefix = 'bulkdel') {
-        return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}`;
-    }
-
-    // 1回限りのメッセージ待機（type と key でフィルタ）
-    function waitForResultOnce({ type, key, windowId = null, tabId = null, timeoutMs = 300000 }) {
-        return new Promise((resolve) => {
-            let settled = false;
-            const done = (val) => { if (!settled) { settled = true; cleanup(); resolve(val); } };
-            const cleanup = () => {
-                try { api.runtime.onMessage.removeListener(onMsg); } catch { }
-                try { api.windows?.onRemoved?.removeListener(onWinRemoved); } catch { }
-                try { api.tabs?.onRemoved?.removeListener(onTabRemoved); } catch { }
-            };
-            const onMsg = (msg, sender) => {
-                if (!msg || msg.type !== type || msg.key !== key) return;
-                if (windowId && sender?.tab?.windowId && sender.tab.windowId !== windowId) return;
-                if (tabId && sender?.tab?.id && sender.tab.id !== tabId) return;
-                // preflight: { ok: boolean }, confirm: { ok: boolean }
-                done(Boolean(msg.ok));
-            };
-            const onWinRemoved = (wid) => { if (windowId && wid === windowId) done(false); };
-            const onTabRemoved = (tid) => { if (tabId && tid === tabId) done(false); };
-
-            api.runtime.onMessage.addListener(onMsg);
-            if (api.windows?.onRemoved) api.windows.onRemoved.addListener(onWinRemoved);
-            if (api.tabs?.onRemoved) api.tabs.onRemoved.addListener(onTabRemoved);
-            if (timeoutMs > 0) setTimeout(() => done(false), timeoutMs);
-        });
-    }
-
-    // 拡張内ページを開く（popup 優先、不可ならタブ）
-    async function openDialogWithQuery(relPathWithQuery, { width = 760, height = 820 } = {}) {
-        const url = api.runtime.getURL(relPathWithQuery);
-
-        // popup window を試す
-        if (api.windows?.create) {
-            try {
-                const win = await api.windows.create({ url, type: 'popup', width, height });
-                const winId = win.id;
-                const tabId = win.tabs && win.tabs[0] && win.tabs[0].id;
-                try { await api.windows.update(winId, { focused: true }); } catch { }
-                return { windowId: winId, tabId, async close() { try { await api.windows.remove(winId); } catch { } } };
-            } catch (e) {
-                console.warn('windows.create failed, fallback to tabs.create:', e?.message || e);
-            }
-        }
-        // タブで開く
-        const tab = await api.tabs.create({ url, active: true });
-        const tabId = tab.id, windowId = tab.windowId;
-        return { windowId, tabId, async close() { try { await api.tabs.remove(tabId); } catch { } } };
-    }
-
-    // ====== Preflight (大量選択の注意喚起) ======
-    async function openPreflightAndWait(selectedCount) {
-        const key = genKey('preflight');
-        const query = `ui/preflight.html?key=${encodeURIComponent(key)}&count=${encodeURIComponent(selectedCount || 0)}`;
-        const dlg = await openDialogWithQuery(query, { width: 560, height: 420 });
-
-        // ページは { type:'preflight-result', key, ok } を返す想定 :contentReference[oaicite:6]{index=6}
-        const ok = await waitForResultOnce({ type: 'preflight-result', key, windowId: dlg.windowId, tabId: dlg.tabId, timeoutMs: 10 * 60 * 1000 });
-        await dlg.close().catch(() => { });
-        return ok;
-    }
-
-    // ====== Confirm (サマリ表示・最終確認) ======
-    // bg/ui.js の中のこの関数を差し替え
-    async function openConfirmPageAndWait({ stats, messages }) {
-        // confirm.js は URL クエリで概要を表示し、storage.local の [key] から詳細を読む設計
-        const key = genKey('confirm');
-
-        // ページが読むデータを storage に保存（キーはそのまま）
-        try {
-            await api.storage.local.set({ [key]: { stats: stats || {}, messages: messages || [] } });
-        } catch (e) {
-            console.error('storage.local.set failed:', e);
-        }
-
-        const affected = encodeURIComponent(stats?.affectedMessages ?? 0);
-        const total = encodeURIComponent(stats?.totalAttachments ?? 0);
-
-        // --- ここが今回の修正：bytes の堅牢なフォールバック計算 ---
-        // 優先度: stats.totalSize → stats.extSummary[].bytes 合計 → messages[].attachments[].size 合計
-        const byteFromStats = (typeof stats?.totalSize === 'number') ? stats.totalSize : NaN;
-        let bytesNum = Number.isFinite(byteFromStats) ? byteFromStats : 0;
-
-        if (!bytesNum && Array.isArray(stats?.extSummary)) {
-            bytesNum = stats.extSummary.reduce((s, r) => s + (Number(r?.bytes) || 0), 0);
-        }
-        if (!bytesNum && Array.isArray(messages)) {
-            bytesNum = messages.reduce((s, m) =>
-                s + (m?.attachments || []).reduce((a, x) => a + (Number(x?.size) || 0), 0)
-                , 0);
-        }
-        const bytes = encodeURIComponent(bytesNum);
-        // --- 修正ここまで ---
-
-        const query = `ui/confirm.html?key=${encodeURIComponent(key)}&affected=${affected}&total=${total}&bytes=${bytes}`;
-        const dlg = await openDialogWithQuery(query, { width: 820, height: 860 });
-
-        // ページは { type:'confirm-result', key, ok } を返す想定
-        const ok = await waitForResultOnce({
-            type: 'confirm-result',
-            key,
-            windowId: dlg.windowId,
-            tabId: dlg.tabId,
-            timeoutMs: 10 * 60 * 1000
-        });
-
-        await dlg.close().catch(() => { });
-        return ok;
-    }
-
-
-    // ====== メニュー生成（冪等化） ======
-    async function createMenus() {
-        try { await api.menus.removeAll(); } catch { }
-        try {
-            api.menus.create({ id: MENU_ID, title: 'Bulk delete attachments (with backup)', contexts: ['message_list'] });
-        } catch (e) {
-            console.warn('menus.create failed (ignored):', e?.message || e);
-        }
-    }
-
-    UI.openPreflightAndWait = openPreflightAndWait;
-    UI.openConfirmPageAndWait = openConfirmPageAndWait;
-    UI.createMenus = createMenus;
-
-})(globalThis.BD);
-
-// bg/ui.js （追記ブロック）
-(function (BD) {
-    'use strict';
     const api = BD.api || (typeof messenger !== 'undefined' ? messenger : browser);
 
-    function _uuid() { return `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`; }
+    /* ================= i18n ================= */
 
-    /**
-     * 進捗ページを開いて、メッセージ送信用コントローラを返す
-     * 送受信は runtime.sendMessage のブロードキャスト＋ key で識別（tabs 権限不要）
-     */
-    async function openProgressPage({ total = 0 } = {}) {
-        const key = _uuid();
-        const url = api.runtime.getURL(`ui/progress.html?total=${encodeURIComponent(total)}&key=${encodeURIComponent(key)}`);
+    function detectLang() {
+        const lang = (api?.i18n?.getUILanguage?.() || navigator.language || 'en').toLowerCase();
+        if (lang.startsWith('ja')) return 'ja';
+        if (lang.startsWith('zh')) return 'zh';
+        return 'en';
+    }
+    const LANG = detectLang();
 
-        // ポップアップで開く（Thunderbirdは windows 権限不要で動作する）
-        try {
-            await api.windows.create({ url, type: 'popup', width: 520, height: 220 });
-        } catch {
-            // 失敗したら通常ウィンドウで
-            await api.windows.create({ url });
+    const T = {
+        en: {
+            // 固定ラベル（固定表示にしたい場合はこれだけ編集）
+            menuDelete: 'Delete attachments (with backup)',
+            // 選択件数に応じて変える場合はこちらが使われます
+            menuDeleteDynamic: (n) => n === 1
+                ? 'Delete attachments (with backup) — 1 message'
+                : `Delete attachments (with backup) — ${n} messages`,
+            preflightTitle: 'Preflight',
+            preflightSubtitle: (n) => `You selected ${n} messages. Do you want to proceed?`
+        },
+        ja: {
+            menuDelete: '添付ファイルを削除（バックアップ保存あり）',
+            menuDeleteDynamic: (n) => `添付ファイルを削除（バックアップ保存）— ${n}件`,
+            preflightTitle: '事前確認',
+            preflightSubtitle: (n) => `${n}件のメッセージが選択されています。続行しますか？`
+        },
+        zh: {
+            menuDelete: '删除附件（含备份）',
+            menuDeleteDynamic: (n) => `删除附件（含备份）— ${n} 封`,
+            preflightTitle: '预检查',
+            preflightSubtitle: (n) => `已选择 ${n} 封邮件。是否继续？`
         }
+    }[LANG];
 
-        // ページ側からの ready を待つ（タイムアウト付き）
-        await new Promise((resolve) => {
+    /* ================= helpers ================= */
+
+    function _uuid() { return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`; }
+
+    async function _openWindow(url, { width = 900, height = 700, type = 'popup' } = {}) {
+        try { return await api.windows.create({ url, type, width, height }); }
+        catch { return await api.windows.create({ url }); }
+    }
+
+    function _onceMessage(predicate, timeoutMs = 30000) {
+        return new Promise((resolve) => {
+            let finished = false;
             const handler = (msg) => {
-                if (msg && msg.type === 'progress-ready' && msg.key === key) {
-                    try { api.runtime.onMessage.removeListener(handler); } catch { }
-                    resolve();
-                }
+                try {
+                    if (predicate(msg)) {
+                        finished = true;
+                        api.runtime.onMessage.removeListener(handler);
+                        resolve(msg);
+                    }
+                } catch { }
             };
             api.runtime.onMessage.addListener(handler);
-            setTimeout(() => { try { api.runtime.onMessage.removeListener(handler); } catch { } resolve(); }, 2000);
+            if (timeoutMs > 0) {
+                setTimeout(() => {
+                    if (finished) return;
+                    try { api.runtime.onMessage.removeListener(handler); } catch { }
+                    resolve(undefined);
+                }, timeoutMs);
+            }
         });
+    }
+
+    async function _getSelectionCount() {
+        try {
+            let page = await api.mailTabs.getSelectedMessages();
+            let count = (page.messages || []).length;
+            while (page.id) {
+                page = await api.messages.continueList(page.id);
+                count += (page.messages || []).length;
+            }
+            return count;
+        } catch {
+            return 0;
+        }
+    }
+
+    /* ================= confirm.html ================= */
+
+    async function openConfirmPageAndWait(payload) {
+        const key = _uuid();
+
+        // confirm.js が使うデータを保存
+        try {
+            await api.storage.local.set({
+                [key]: {
+                    stats: payload?.stats || {},
+                    messages: Array.isArray(payload?.messages) ? payload.messages : []
+                }
+            });
+        } catch (e) {
+            console.error('[BAD] storage set failed for confirm data:', e?.message || e);
+            return false;
+        }
+
+        const affected = Number(payload?.stats?.affectedMessages ?? 0);
+        const total = Number(payload?.stats?.totalAttachments ?? 0);
+        const bytesF = (typeof payload?.stats?.totalSize === 'number')
+            ? payload.stats.totalSize
+            : (typeof payload?.stats?.totalBytes === 'number' ? payload.stats.totalBytes : NaN);
+
+        // フォールバックで bytes 推定
+        let bytesNum = Number.isFinite(bytesF) ? bytesF : 0;
+        if (!bytesNum && Array.isArray(payload?.stats?.extSummary)) {
+            bytesNum = payload.stats.extSummary.reduce((s, r) => s + (Number(r?.bytes) || 0), 0);
+        }
+        if (!bytesNum && Array.isArray(payload?.messages)) {
+            bytesNum = payload.messages.reduce((s, m) =>
+                s + (m?.attachments || []).reduce((a, x) => a + (Number(x?.size) || 0), 0), 0
+            );
+        }
+
+        const url = api.runtime.getURL(
+            `ui/confirm.html?affected=${encodeURIComponent(affected)}&total=${encodeURIComponent(total)}&bytes=${encodeURIComponent(bytesNum)}&key=${encodeURIComponent(key)}`
+        );
+
+        await _openWindow(url, { width: 980, height: 720 });
+
+        // confirm.js → runtime.sendMessage({ type:'confirm-result', key, ok })
+        const msg = await _onceMessage((m) => m && m.type === 'confirm-result' && m.key === key, 600000);
+        try { await api.storage.local.remove(key); } catch { }
+
+        return !!(msg && msg.ok === true);
+    }
+
+    /* ================= progress.html ================= */
+
+    async function openProgressPage({ total = 0 } = {}) {
+        const key = _uuid();
+        const url = api.runtime.getURL(
+            `ui/progress.html?total=${encodeURIComponent(total)}&key=${encodeURIComponent(key)}`
+        );
+
+        await _openWindow(url, { width: 520, height: 240 });
+
+        // ページの ready を待機（progress.js → 'progress-ready'）
+        await _onceMessage((m) => m && m.type === 'progress-ready' && m.key === key, 20000);
+
+        let cancelled = false;
+        const cancelHandler = (msg) => {
+            if (msg && msg.type === 'progress-cancel' && msg.key === key) {
+                cancelled = true;
+            }
+        };
+        api.runtime.onMessage.addListener(cancelHandler);
 
         const send = (type, payload) => api.runtime.sendMessage(Object.assign({ type, key }, payload || {}));
+
         return {
             key,
             start: (n) => send('progress-start', { n }),
             update: (i, n) => send('progress-update', { i, n }),
             done: () => send('progress-done'),
-            error: (message) => send('progress-error', { message })
+            cancelled: () => send('progress-cancelled'),
+            error: (message) => send('progress-error', { message }),
+            isCancelled: () => cancelled
         };
     }
 
-    BD.ui = Object.assign(BD.ui || {}, { openProgressPage });
+    /* ================= preflight.html（任意） ================= */
+
+    async function openPreflightAndWait(count) {
+        const key = _uuid();
+        const url = api.runtime.getURL(
+            `ui/preflight.html?count=${encodeURIComponent(count)}&key=${encodeURIComponent(key)}`
+        );
+        try {
+            await _openWindow(url, { width: 420, height: 220 });
+            // ready
+            await _onceMessage((m) => m && m.type === 'preflight-ready' && m.key === key, 20000);
+            // result
+            const res = await _onceMessage((m) => m && m.type === 'preflight-result' && m.key === key, 600000);
+            return !!(res && res.ok === true);
+        } catch {
+            // ページが無い/開けない場合は、既定で進める
+            return true;
+        }
+    }
+
+    /* ================= menus ================= */
+
+    function createMenus() {
+        const id = (BD?.const && BD.const.MENU_ID) ? BD.const.MENU_ID : 'bulk-attachment-deleter.menu.delete';
+
+        // 既に存在していても例外にしない
+        try {
+            api.menus.create({
+                id,
+                title: T.menuDelete,     // 初期タイトル（のちほど onShown で動的更新）
+                contexts: ['message_list'],
+                // Thunderbird/Firefox ではアイコンを指定できる場合があります（任意）
+                // icons: { 16: 'images/icon.svg' }
+            }, () => void 0);
+        } catch (e) {
+            console.warn('menus.create warn:', e?.message || e);
+        }
+
+        // 右クリックが開かれるたびに選択件数に応じてタイトルを差し替え
+        try {
+            api.menus.onShown.addListener(async (info, tab) => {
+                try {
+                    // メール一覧の右クリックのみ対象
+                    if (!info?.contexts || !info.contexts.includes('message_list')) return;
+
+                    const count = await _getSelectionCount();
+                    const title = (typeof T.menuDeleteDynamic === 'function')
+                        ? T.menuDeleteDynamic(count)
+                        : T.menuDelete;
+
+                    await api.menus.update(id, { title });
+                    // 反映
+                    try { await api.menus.refresh(); } catch { }
+                } catch (e) {
+                    console.warn('menus.onShown update failed:', e?.message || e);
+                }
+            });
+        } catch (e) {
+            // 古い環境などで onShown が無い場合は無視
+        }
+    }
+
+    /* ================= export ================= */
+
+    BD.ui = Object.assign(BD.ui || {}, {
+        openConfirmPageAndWait,
+        openProgressPage,
+        openPreflightAndWait,
+        createMenus
+    });
+
 })(globalThis.BD || (globalThis.BD = {}));

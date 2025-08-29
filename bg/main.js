@@ -1,7 +1,8 @@
 // bg/main.js
 // 確認後に進捗フォームを表示し、添付は「保存→検証→（成功分だけ）即削除」を小刻みに実行。
-// ※ 本文保存は行わない。
-// 依存: BD.api / BD.mail / BD.ui / （あれば）BD.runner
+// - 本文保存は行わない
+// - 添付ファイルごとに 1 秒待機、メッセージごとに 5 秒クールダウン
+// - 進捗フォームで Cancel を受け付け、中断可（完了分まで）
 
 (function (BD) {
     'use strict';
@@ -11,7 +12,7 @@
     const {
         getAllSelectedMessageIds,
         buildTargetsAndStats,
-        saveAllAttachmentsVerified // runner が無い場合のフォールバック用
+        saveAllAttachmentsVerified
     } = BD.mail;
 
     const {
@@ -36,7 +37,9 @@
             start() { },
             update() { },
             done() { },
-            error() { }
+            cancelled() { },
+            error() { },
+            isCancelled() { return false; }
         };
     }
 
@@ -47,7 +50,7 @@
                 title: 'Unable to use messages.deleteAttachments API',
                 message:
                     'messages.deleteAttachments is unavailable. ' +
-                    'Check permissions (messagesModifyPermanent) and Thunderbird 123+.'
+                    'Check permissions (messagesModifyPermanent) and Thunderbird version.'
             });
             console.error('messages.deleteAttachments unavailable');
             return;
@@ -111,59 +114,110 @@
                     {
                         perFileDelayMs: 1000,               // 添付1ファイルごと待機
                         cooldownAfterEachMessageMs: 5000,   // 1通ごと 5 秒クールダウン
+                        shouldCancel: () => !!progressCtrl.isCancelled?.(),
                         onProgress: (p) => {
                             try {
                                 if (p?.phase === 'start') {
                                     const n = p.totalToDelete ?? stats.totalAttachments;
                                     progressCtrl.start(n);
                                 } else if (p?.phase === 'progress') {
-                                    // 処理済み = 保存成功 + 保存失敗 とみなす
                                     const n = (p.totals?.totalToDelete) ?? stats.totalAttachments;
                                     const i = (p.totals?.totalSaved || 0) + (p.totals?.totalFailedSave || 0);
                                     progressCtrl.update(i, n);
                                 } else if (p?.phase === 'done') {
-                                    progressCtrl.done();
+                                    if (p.cancelled) progressCtrl.cancelled?.();
+                                    else progressCtrl.done?.();
                                 }
                             } catch { }
                         }
                     }
                 );
             } else {
-                // フォールバック：旧フロー（全件保存→全件削除）
+                // フォールバック：runner が無い場合でも逐次的に処理＋Cancel対応
                 try { progressCtrl.start(stats.totalAttachments); } catch { }
-                const { successMap } = await saveAllAttachmentsVerified(targets, metaById);
-                let processed = 0;
 
-                const okTargets = [];
-                for (const [id, okSet] of successMap.entries()) {
-                    processed += okSet.size;
-                    try { progressCtrl.update(processed, stats.totalAttachments); } catch { }
-                    if (okSet.size) okTargets.push({ id, partNames: [...okSet] });
-                }
-
-                if (okTargets.length) {
-                    if (BD?.runner?.deleteAttachmentsSafely) {
-                        await BD.runner.deleteAttachmentsSafely(okTargets);
-                    } else {
-                        for (const { id, partNames } of okTargets) {
-                            try { await api.messages.deleteAttachments(id, partNames); }
-                            catch (e) {
-                                // フォールバック：1件ずつ
-                                for (const p of partNames) {
-                                    try { await api.messages.deleteAttachments(id, [p]); }
-                                    catch (ee) { console.warn('delete one failed', id, p, ee?.message || ee); }
+                // 削除の安全実行（ランナー無し時）
+                const parsePart = (s) => s.split('.').map(n => parseInt(n, 10)).filter(Number.isFinite);
+                const cmpPartDesc = (a, b) => {
+                    const A = parsePart(a), B = parsePart(b), L = Math.max(A.length, B.length);
+                    for (let i = 0; i < L; i++) { const av = A[i] ?? -1, bv = B[i] ?? -1; if (av !== bv) return bv - av; }
+                    return B.length - A.length;
+                };
+                const deleteAttachmentsSafely = async (delTargets) => {
+                    let deleted = 0, failed = 0;
+                    for (const { id, partNames: wanted } of (delTargets || [])) {
+                        let remaining = [...wanted];
+                        while (remaining.length) {
+                            const liveSet = new Set((await api.messages.listAttachments(id)).map(a => a.partName));
+                            const candidates = remaining.filter(p => liveSet.has(p)).sort(cmpPartDesc);
+                            if (!candidates.length) break;
+                            const chunk = candidates.slice(0, 16);
+                            try {
+                                await api.messages.deleteAttachments(id, chunk);
+                                deleted += chunk.length;
+                            } catch {
+                                for (const p of chunk) {
+                                    try { await api.messages.deleteAttachments(id, [p]); deleted++; }
+                                    catch { failed++; }
                                 }
                             }
-                            // 1通ごとに 5 秒のクールダウン
-                            await sleep(500);
+                            const done = new Set(chunk);
+                            remaining = remaining.filter(p => !done.has(p));
+                            await sleep(0);
                         }
                     }
+                    return { deleted, failed };
+                };
+
+                let totalToDelete = stats.totalAttachments;
+                let totalSaved = 0, totalFailedSave = 0, totalDeleted = 0, totalFailedDelete = 0;
+
+                for (let idx = 0; idx < targets.length; idx++) {
+                    if (progressCtrl.isCancelled?.()) break;
+
+                    const { id, partNames } = targets[idx];
+
+                    // このメッセージ分だけ保存
+                    const { successMap, failCount, savedCount } =
+                        await saveAllAttachmentsVerified([{ id, partNames }], metaById);
+
+                    totalSaved += savedCount;
+                    totalFailedSave += failCount;
+
+                    // 成功分だけ即削除
+                    const okSet = successMap.get(id) || new Set();
+                    const okParts = [...okSet];
+                    if (okParts.length && !progressCtrl.isCancelled?.()) {
+                        const { deleted, failed } = await deleteAttachmentsSafely([{ id, partNames: okParts }]);
+                        totalDeleted += deleted;
+                        totalFailedDelete += failed;
+                    }
+
+                    // 進捗更新（保存成功＋失敗＝「処理済み」とみなす）
+                    try {
+                        const processed = totalSaved + totalFailedSave;
+                        progressCtrl.update(processed, totalToDelete);
+                    } catch { }
+
+                    if (progressCtrl.isCancelled?.()) break;
+
+                    // メッセージごとのクールダウン
+                    if (idx < targets.length - 1) await sleep(5000);
                 }
-                try { progressCtrl.update(stats.totalAttachments, stats.totalAttachments); progressCtrl.done(); } catch { }
-                runResult = { totals: { totalSaved: processed, totalDeleted: 0, totalFailedSave: stats.totalAttachments - processed, totalFailedDelete: 0, totalToDelete: stats.totalAttachments }, fallback: true };
+
+                // UI 終了通知
+                try {
+                    if (progressCtrl.isCancelled?.()) progressCtrl.cancelled?.();
+                    else progressCtrl.done?.();
+                } catch { }
+
+                runResult = {
+                    totals: { totalSaved, totalDeleted, totalFailedSave, totalFailedDelete, totalToDelete },
+                    cancelled: !!progressCtrl.isCancelled?.()
+                };
             }
 
-            // 4) 結果通知
+            // 4) 結果通知（キャンセル時はタイトルを変更）
             const t = runResult?.totals || { totalSaved: 0, totalDeleted: 0, totalFailedSave: 0, totalFailedDelete: 0, totalToDelete: stats.totalAttachments };
             const issues = [];
             if (t.totalFailedSave) issues.push(`${t.totalFailedSave} attachment(s) had backup errors`);
@@ -172,7 +226,7 @@
 
             await api.notifications.create({
                 type: 'basic',
-                title: 'Backup & Deletion Completed',
+                title: runResult?.cancelled ? 'Cancelled by user' : 'Backup & Deletion Completed',
                 message:
                     `${stats.affectedMessages} messages selected\n` +
                     `${t.totalSaved}/${stats.totalAttachments} attachments saved\n` +
@@ -192,7 +246,8 @@
 
     // ===== メニュー多重作成の防止（idempotent wrapper）=====
     function ensureMenusOnce() {
-        if (BD.state.menusCreated) return;
+        if (BD.state?.menusCreated) return;
+        if (!BD.state) BD.state = {};
         BD.state.menusCreated = true;
         try { createMenus(); }
         catch (e) {
@@ -202,13 +257,18 @@
     }
 
     // 初期バインド（多重登録防止）
-    if (!BD.state.bound) {
-        api.action.onClicked.addListener(deleteAllAttachmentsOnSelectedMessages);
+    if (!BD.state?.bound) {
+        if (!BD.state) BD.state = {};
+        // ★ ここは削除：ツールバーの action を使わない
+        // api.action.onClicked.addListener(deleteAllAttachmentsOnSelectedMessages);
+
         api.runtime.onInstalled.addListener(() => ensureMenusOnce());
         api.runtime.onStartup.addListener(() => ensureMenusOnce());
         api.menus.onClicked.addListener(info => {
-            if (info.menuItemId === BD.const.MENU_ID) deleteAllAttachmentsOnSelectedMessages();
+            if (info.menuItemId === (BD.const?.MENU_ID || 'bulk-attachment-deleter.menu.delete')) {
+                deleteAllAttachmentsOnSelectedMessages();
+            }
         });
         BD.state.bound = true;
     }
-})(globalThis.BD);
+})(globalThis.BD || (globalThis.BD = {}));

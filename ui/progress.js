@@ -1,5 +1,5 @@
 // ui/progress.js
-// i18n対応版（ja/en/zh）＋安全クローズ
+// i18n + Cancel ボタン + 完了時の自動クローズ
 (() => {
     'use strict';
     const api = (typeof messenger !== 'undefined') ? messenger : browser;
@@ -26,6 +26,8 @@
             processingFmt: (i, n) => `${i} / ${n} attachments processing…`,
             done: 'Completed.',
             close: 'Close',
+            cancel: 'Cancel',
+            cancelling: 'Cancelling…',
             error: 'An error occurred.'
         },
         ja: {
@@ -34,6 +36,8 @@
             processingFmt: (i, n) => `${i} / ${n}件の添付ファイルを処理中…`,
             done: '完了しました。',
             close: '閉じる',
+            cancel: 'キャンセル',
+            cancelling: 'キャンセル中…',
             error: 'エラーが発生しました。'
         },
         zh: {
@@ -42,6 +46,8 @@
             processingFmt: (i, n) => `${i} / ${n} 个附件正在处理…`,
             done: '已完成。',
             close: '关闭',
+            cancel: '取消',
+            cancelling: '正在取消…',
             error: '发生错误。'
         }
     }[LANG];
@@ -52,6 +58,7 @@
     const label = $('label');
     const pct = $('pct');
     const btnClose = $('close');
+    const btnCancel = $('cancel');
 
     function setWarn(t) { const el = $('warn'); if (!el) return; el.textContent = String(t || ''); el.hidden = !t; }
     function setError(t) { const el = $('error'); if (!el) return; el.textContent = String(t || ''); el.hidden = !t; }
@@ -90,12 +97,26 @@
 
     btnClose?.addEventListener('click', closeSelfSafely);
 
+    btnCancel?.addEventListener('click', async () => {
+        try {
+            btnCancel.disabled = true;
+            setText(btnCancel, I18N.cancelling);
+            await api.runtime.sendMessage({ type: 'progress-cancel', key });
+        } catch { }
+    });
+
     function applyI18nStaticLabels() {
         const h1 = document.querySelector('header h1');
         const sub = document.querySelector('header .subtitle');
         setText(h1, I18N.title);
         setText(sub, I18N.subtitle);
         setText(btnClose, I18N.close);
+        setText(btnCancel, I18N.cancel);
+    }
+
+    function autoCloseSoon() {
+        // 少し表示を残してから自動クローズ
+        setTimeout(closeSelfSafely, 800);
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
@@ -110,17 +131,23 @@
         if (!msg || msg.key !== key) return;
         if (msg.type === 'progress-start') {
             setWarn('');
+            btnCancel.hidden = false;
+            btnCancel.disabled = false;
+            setText(btnCancel, I18N.cancel);
             update(0, Number(msg.n || totalInit));
         } else if (msg.type === 'progress-update') {
             update(Number(msg.i || 0), Number(msg.n || totalInit));
         } else if (msg.type === 'progress-error') {
             setError(String(msg.message || I18N.error));
+            btnCancel.hidden = true;
             btnClose.hidden = false;
-        } else if (msg.type === 'progress-done') {
+        } else if (msg.type === 'progress-done' || msg.type === 'progress-cancelled') {
             if (bar) { bar.value = bar.max; }
             if (label) label.textContent = I18N.done;
             if (pct) pct.textContent = '100%';
-            btnClose.hidden = false;
+            btnCancel.hidden = true;
+            btnClose.hidden = true; // 自動クローズするので表示不要
+            autoCloseSoon();
         }
     });
 })();
