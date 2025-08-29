@@ -1,18 +1,44 @@
 // bg/main.js
+// 確認後に進捗フォームを表示し、添付は「保存→検証→（成功分だけ）即削除」を小刻みに実行。
+// ※ 本文保存は行わない。
+// 依存: BD.api / BD.mail / BD.ui / （あれば）BD.runner
+
 (function (BD) {
     'use strict';
 
     const api = BD.api;
-    const { humanSize } = BD.utils;
+
     const {
         getAllSelectedMessageIds,
         buildTargetsAndStats,
-        saveAllAttachmentsVerified,
-        saveMessageBodiesVerified
+        saveAllAttachmentsVerified // runner が無い場合のフォールバック用
     } = BD.mail;
-    const { openConfirmPageAndWait, openPreflightAndWait, createMenus } = BD.ui;
+
+    const {
+        openConfirmPageAndWait,
+        openPreflightAndWait,
+        createMenus,
+        openProgressPage
+    } = BD.ui;
 
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    // 進捗コントローラを安全に取得（失敗時は no-op を返す）
+    async function openProgressSafely(total) {
+        try {
+            const ctrl = await openProgressPage({ total });
+            if (ctrl && typeof ctrl.update === 'function') return ctrl;
+        } catch (e) {
+            console.warn('[BAD] progress window open failed:', e?.message || e);
+        }
+        // no-op
+        return {
+            start() { },
+            update() { },
+            done() { },
+            error() { }
+        };
+    }
 
     async function deleteAllAttachmentsOnSelectedMessages() {
         if (!api?.messages?.deleteAttachments) {
@@ -27,11 +53,13 @@
             return;
         }
 
+        let progressCtrl = null;
+
         try {
             // 0) 選択メッセージIDの取得
             const ids = await getAllSelectedMessageIds();
 
-            // 0.5) 大量選択時のプリフライト（UIを必ず開く）
+            // 0.5) 大量選択時のプリフライト
             if (ids.length > 100) {
                 const proceed = await openPreflightAndWait(ids.length);
                 if (!proceed) {
@@ -45,7 +73,7 @@
             }
 
             // 1) 評価（添付列挙・サイズ集計）
-            const { targets, metaById, stats, messages, idsWithAttachments } = await buildTargetsAndStats(ids);
+            const { targets, metaById, stats, messages } = await buildTargetsAndStats(ids);
 
             if (!stats || typeof stats.totalAttachments !== 'number') {
                 throw new Error('stats is undefined or invalid from buildTargetsAndStats');
@@ -59,13 +87,8 @@
                 return;
             }
 
-            // 2) 確認ダイアログ（ページ仕様と同期）
-            // confirm.html は URL クエリで概要を表示し、storage.local の [key] から詳細を読む設計。:contentReference[oaicite:9]{index=9} :contentReference[oaicite:10]{index=10}
-            const ok = await openConfirmPageAndWait({
-                stats,
-                messages
-                // idsWithAttachments はページで未使用なので不要（必要なら保存対象に含めても可）
-            });
+            // 2) 確認ダイアログ
+            const ok = await openConfirmPageAndWait({ stats, messages });
             if (!ok) {
                 await api.notifications.create({
                     type: 'basic',
@@ -75,88 +98,90 @@
                 return;
             }
 
-            // 3) バックアップ：添付
-            const { savedCount: attSavedCount, failCount: attFail } =
-                await saveAllAttachmentsVerified(targets, metaById);
+            // 2.5) 進捗ページを開く
+            progressCtrl = await openProgressSafely(stats.totalAttachments);
 
-            // 4) バックアップ：本文
-            const { savedCount: bodySavedCount, failCount: bodyFailCount } =
-                await saveMessageBodiesVerified(ids);
+            // 3) 添付：保存→検証→（成功分だけ）即削除（小刻み）
+            let runResult = null;
 
-            // 5) 削除対象の集約
-            const deleteTargets = [];
-            let deletables = 0;
-            for (const t of targets) {
-                if (t.partNames?.length) {
-                    deleteTargets.push({ id: t.id, partNames: t.partNames });
-                    deletables += t.partNames.length;
-                }
-            }
-
-            // 6) 削除（チャンク化＋再解決＋フォールバック）
-            const CHUNK_SIZE = 16; // 小さめが安全（16〜32 推奨）
-            const parsePart = (s) => s.split('.').map(n => parseInt(n, 10)).filter(Number.isFinite);
-            // “深い/大きい順” に消すと再番号付けの影響を受けにくい
-            const cmpPartDesc = (a, b) => {
-                const A = parsePart(a), B = parsePart(b);
-                const L = Math.max(A.length, B.length);
-                for (let i = 0; i < L; i++) {
-                    const av = A[i] ?? -1, bv = B[i] ?? -1;
-                    if (av !== bv) return bv - av;       // 大きい方を先に
-                }
-                return B.length - A.length;
-            };
-
-            let deleted = 0;
-            for (const { id, partNames: original } of deleteTargets) {
-                // まだ削除していない “狙いリスト”
-                let remaining = [...original];
-
-                while (remaining.length) {
-                    // いま実在する添付の partName を取り直す
-                    const live = new Set((await BD.api.messages.listAttachments(id)).map(a => a.partName)); // Thunderbid messages API
-                    // まだ残っていて、今も存在するものを抽出
-                    const candidates = remaining.filter(p => live.has(p)).sort(cmpPartDesc);
-                    if (!candidates.length) break;
-
-                    const chunk = candidates.slice(0, CHUNK_SIZE);
-                    try {
-                        await BD.api.messages.deleteAttachments(id, chunk);
-                        deleted += chunk.length;
-                    } catch (e) {
-                        // 失敗時は 1 件ずつフォールバック
-                        for (const p of chunk) {
-                            try { await BD.api.messages.deleteAttachments(id, [p]); deleted += 1; }
-                            catch (ee) { console.warn('deleteAttachments failed for', id, p, ee?.message || ee); }
+            if (BD?.runner?.runBackupThenDelete) {
+                runResult = await BD.runner.runBackupThenDelete(
+                    targets,
+                    metaById,
+                    {
+                        perFileDelayMs: 1000,               // 添付1ファイルごと待機
+                        cooldownAfterEachMessageMs: 5000,   // 1通ごと 5 秒クールダウン
+                        onProgress: (p) => {
+                            try {
+                                if (p?.phase === 'start') {
+                                    const n = p.totalToDelete ?? stats.totalAttachments;
+                                    progressCtrl.start(n);
+                                } else if (p?.phase === 'progress') {
+                                    // 処理済み = 保存成功 + 保存失敗 とみなす
+                                    const n = (p.totals?.totalToDelete) ?? stats.totalAttachments;
+                                    const i = (p.totals?.totalSaved || 0) + (p.totals?.totalFailedSave || 0);
+                                    progressCtrl.update(i, n);
+                                } else if (p?.phase === 'done') {
+                                    progressCtrl.done();
+                                }
+                            } catch { }
                         }
                     }
-                    // 今回処理したものを remaining から除去
-                    const done = new Set(chunk);
-                    remaining = remaining.filter(p => !done.has(p));
-                    await sleep(0); // イベントループに譲る（UI 固まり対策）
+                );
+            } else {
+                // フォールバック：旧フロー（全件保存→全件削除）
+                try { progressCtrl.start(stats.totalAttachments); } catch { }
+                const { successMap } = await saveAllAttachmentsVerified(targets, metaById);
+                let processed = 0;
+
+                const okTargets = [];
+                for (const [id, okSet] of successMap.entries()) {
+                    processed += okSet.size;
+                    try { progressCtrl.update(processed, stats.totalAttachments); } catch { }
+                    if (okSet.size) okTargets.push({ id, partNames: [...okSet] });
                 }
+
+                if (okTargets.length) {
+                    if (BD?.runner?.deleteAttachmentsSafely) {
+                        await BD.runner.deleteAttachmentsSafely(okTargets);
+                    } else {
+                        for (const { id, partNames } of okTargets) {
+                            try { await api.messages.deleteAttachments(id, partNames); }
+                            catch (e) {
+                                // フォールバック：1件ずつ
+                                for (const p of partNames) {
+                                    try { await api.messages.deleteAttachments(id, [p]); }
+                                    catch (ee) { console.warn('delete one failed', id, p, ee?.message || ee); }
+                                }
+                            }
+                            // 1通ごとに 5 秒のクールダウン
+                            await sleep(500);
+                        }
+                    }
+                }
+                try { progressCtrl.update(stats.totalAttachments, stats.totalAttachments); progressCtrl.done(); } catch { }
+                runResult = { totals: { totalSaved: processed, totalDeleted: 0, totalFailedSave: stats.totalAttachments - processed, totalFailedDelete: 0, totalToDelete: stats.totalAttachments }, fallback: true };
             }
 
-            // 7) 結果通知
+            // 4) 結果通知
+            const t = runResult?.totals || { totalSaved: 0, totalDeleted: 0, totalFailedSave: 0, totalFailedDelete: 0, totalToDelete: stats.totalAttachments };
             const issues = [];
-            if (attFail) issues.push(`${attFail} attachment(s) had backup errors`);
-            if (bodyFailCount) issues.push(`${bodyFailCount} message bodies had backup errors`);
+            if (t.totalFailedSave) issues.push(`${t.totalFailedSave} attachment(s) had backup errors`);
+            if (t.totalFailedDelete) issues.push(`${t.totalFailedDelete} attachment(s) had deletion errors`);
             const tail = issues.length ? `\nNotes: ${issues.join('; ')}` : '';
-
-            const expectedAttachmentsSaved = stats.totalAttachments;
-            const actualAttachmentsSaved = attSavedCount;
 
             await api.notifications.create({
                 type: 'basic',
                 title: 'Backup & Deletion Completed',
                 message:
                     `${stats.affectedMessages} messages selected\n` +
-                    `${actualAttachmentsSaved}/${expectedAttachmentsSaved} attachments saved\n` +
-                    `${deleted}/${deletables} attachments deleted${tail}`
+                    `${t.totalSaved}/${stats.totalAttachments} attachments saved\n` +
+                    `${t.totalDeleted} attachments deleted${tail}`
             });
 
         } catch (e) {
             console.error(e);
+            try { progressCtrl?.error?.(e?.message || String(e)); } catch { }
             await api.notifications.create({
                 type: 'basic',
                 title: 'Error during backup/verify/delete',

@@ -4,20 +4,19 @@
 
     const api = BD.api;
     const { SAVE_ROOT } = BD.const;
-    const { timestampFromDate, sanitize } = BD.utils;
+    const { timestampFromDate, sanitizePathSegment, sanitizeFilename } = BD.utils;
     const { downloadViaBlobAndVerify } = BD.downloads;
 
-    async function getAllSelectedMessageIds() {
-        let page = await api.mailTabs.getSelectedMessages();
-        const ids = [...page.messages.map(m => m.id)];
-        while (page.id) {
-            page = await api.messages.continueList(page.id);
-            ids.push(...page.messages.map(m => m.id));
-        }
-        return ids;
+    /* ========= helpers ========= */
+
+    function getMeta(metaById, id) {
+        try {
+            if (metaById?.get) return metaById.get(id) || {};
+            if (metaById && typeof metaById === 'object') return metaById[id] || {};
+        } catch { }
+        return {};
     }
 
-    // ---- 受信日時の決定を強化 ----
     function coerceDate(v) {
         if (!v && v !== 0) return null;
         if (v instanceof Date) return isNaN(v) ? null : v;
@@ -38,7 +37,6 @@
 
     function parseReceivedLineForDate(line) {
         if (!line) return null;
-        // Received: ... ; Tue, 13 Aug 2024 09:31:15 +0900 (JST)
         const semi = line.lastIndexOf(';');
         const candidate = (semi >= 0 ? line.slice(semi + 1) : String(line)).trim();
         const d = new Date(candidate);
@@ -69,14 +67,23 @@
 
         const d3 = coerceDate(fallbackDate);
         if (d3) return d3;
-
         return new Date();
     }
 
-    /**
-     * 析出: 削除候補と統計(UI用)
-     * metaById: { subject, stampDate: Date, stamp: 'yyyymmdd-hhmmss' }
-     */
+    /* ========= selection ========= */
+
+    async function getAllSelectedMessageIds() {
+        let page = await api.mailTabs.getSelectedMessages();
+        const ids = [...(page.messages || []).map(m => m.id)];
+        while (page.id) {
+            page = await api.messages.continueList(page.id);
+            ids.push(...(page.messages || []).map(m => m.id));
+        }
+        return ids;
+    }
+
+    /* ========= build targets & stats ========= */
+
     async function buildTargetsAndStats(messageIds) {
         let totalBytes = 0, totalCount = 0, affected = 0;
         const targets = [];
@@ -90,7 +97,7 @@
             const stamp = timestampFromDate(recvDate);
 
             const atts = await api.messages.listAttachments(id);
-            const usable = atts
+            const usable = (atts || [])
                 .filter(a => a.contentType !== 'text/x-moz-deleted')
                 .map(a => ({
                     name: a.name || '(no name)',
@@ -140,85 +147,55 @@
 
         const extSummary = [...byExt.entries()]
             .map(([ext, v]) => ({ ext, count: v.count, bytes: v.bytes }))
-            .sort((a, b) => b.bytes - a.bytes);
+            .sort((a, b) => b.bytes - a.bytes || b.count - a.count || String(a.ext).localeCompare(String(b.ext)));
+
+        const stats = { affectedMessages: affected, totalAttachments: totalCount, totalBytes, totalSize: totalBytes, extSummary };
 
         return {
             targets,
             metaById,
-            stats: { affectedMessages: affected, totalAttachments: totalCount, totalBytes, extSummary },
+            stats,
             messages,
             idsWithAttachments: targets.map(t => t.id)
         };
     }
 
-    // 本文抽出
-    async function extractPlainBody(id) {
-        try {
-            const parts = await api.messages.listInlineTextParts(id);
-            const plain = parts.find(p => (p.contentType || '').toLowerCase().startsWith('text/plain'));
-            if (plain?.content) return plain.content;
-            const html = parts.find(p => (p.contentType || '').toLowerCase().startsWith('text/html'));
-            if (html?.content) {
-                if (api?.messengerUtilities?.convertToPlainText) {
-                    return await api.messengerUtilities.convertToPlainText(html.content);
-                }
-                return (html.content || '').replace(/<[^>]+>/g, '');
-            }
-        } catch (e) { /* fallback */ }
+    /* ========= save: attachments (with verify & per-file delay) ========= */
 
-        try {
-            const full = await api.messages.getFull(id);
-            const q = []; if (full) q.push(full);
-            while (q.length) {
-                const node = q.shift();
-                const ct = (node.contentType || '').toLowerCase();
-                if (ct.startsWith('text/plain') && node.body) return node.body;
-                if (ct.startsWith('text/html') && node.body) {
-                    if (api?.messengerUtilities?.convertToPlainText) {
-                        return await api.messengerUtilities.convertToPlainText(node.body);
-                    }
-                    return (node.body || '').replace(/<[^>]+>/g, '');
-                }
-                if (Array.isArray(node.parts)) q.push(...node.parts);
-            }
-        } catch (e) { /* give up */ }
-
-        return '';
-    }
-
-    // 添付を保存（検証つき） — 各ファイルごとに1秒待機
+    // 添付を保存（検証つき） — 各ファイルごとに1秒待機（finally）
     async function saveAllAttachmentsVerified(targets, metaById) {
         if (!api?.downloads?.download) throw new Error("downloads API unavailable (missing 'downloads' permission?)");
 
-        // 待機ヘルパ（ローカル定義）
         const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-        const PER_FILE_DELAY_MS = 1000; // 待機時間（必要に応じて変更）
+        const PER_FILE_DELAY_MS = 1000;
 
         const successMap = new Map();
         let failCount = 0, savedCount = 0;
 
-        for (const { id, partNames } of targets) {
-            const meta = metaById.get(id);
-            const title = sanitize(meta?.subject || 'no_subject');
-            const stamp = meta?.stamp;
+        for (const { id, partNames } of (targets || [])) {
+            const meta = getMeta(metaById, id);
+            // 件名はパスの一部なので「セグメント」としてサニタイズ
+            const title = sanitizePathSegment(meta.subject || 'no_subject', { max: 120 });
+            const stamp = meta.stamp || timestampFromDate(meta.stampDate || new Date());
 
             const okSet = new Set();
 
-            for (let i = 0; i < partNames.length; i++) {
+            for (let i = 0; i < (partNames || []).length; i++) {
                 const partName = partNames[i];
                 try {
                     const file = await api.messages.getAttachmentFile(id, partName);
-                    const orig = sanitize(file.name || 'attachment');
+                    // 実ファイル名は拡張子保持でサニタイズ
+                    const orig = sanitizeFilename(file?.name || 'attachment', { max: 180 });
                     const logicalPath = `${SAVE_ROOT}/${stamp}_${title}_${orig}`;
+
                     const res = await downloadViaBlobAndVerify(file, logicalPath);
-                    if (res.ok) { okSet.add(partName); savedCount++; }
+                    if (res?.ok) { okSet.add(partName); savedCount++; }
                     else { failCount++; console.warn('verify failed for', logicalPath); }
                 } catch (e) {
                     failCount++;
                     console.warn('attachment save error:', e?.message || e);
                 } finally {
-                    // 最後の1件以外は1秒待機
-                    if (i < partNames.length - 1) {
+                    if (i < (partNames.length - 1)) {
                         await delay(PER_FILE_DELAY_MS);
                     }
                 }
@@ -230,38 +207,9 @@
         return { successMap, failCount, savedCount };
     }
 
-    // 本文を保存（検証つき）
-    async function saveMessageBodiesVerified(messageIds, metaById) {
-        const bodyOkMap = new Map();
-        let bodyFailCount = 0;
-
-        for (const id of messageIds) {
-            try {
-                const meta = metaById.get(id);
-                const title = sanitize(meta?.subject || 'no_subject');
-                const stamp = meta?.stamp;
-
-                const text = await extractPlainBody(id);
-                const logicalPath = `${SAVE_ROOT}/${stamp}_${title}.txt`;
-                const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-
-                const res = await downloadViaBlobAndVerify(blob, logicalPath);
-                if (res.ok) { bodyOkMap.set(id, true); }
-                else { bodyFailCount++; console.warn('verify failed for body', logicalPath); }
-            } catch (e) {
-                bodyFailCount++;
-                console.warn('body save error:', e?.message || e);
-            }
-        }
-
-        return { bodyOkMap, bodyFailCount };
-    }
-
     BD.mail = {
         getAllSelectedMessageIds,
         buildTargetsAndStats,
-        extractPlainBody,
-        saveAllAttachmentsVerified,
-        saveMessageBodiesVerified
+        saveAllAttachmentsVerified
     };
 })(globalThis.BD);

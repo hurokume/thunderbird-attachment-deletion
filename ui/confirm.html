@@ -36,9 +36,9 @@
         <table id="extTable" class="grid">
             <thead>
                 <tr>
-                    <th>Extension</th>
-                    <th>Count</th>
-                    <th>Total</th>
+                    <th scope="col">Extension</th>
+                    <th scope="col">Count</th>
+                    <th scope="col">Total</th>
                 </tr>
             </thead>
             <tbody>
@@ -54,11 +54,11 @@
         <table id="msgTable" class="grid wide">
             <thead>
                 <tr>
-                    <th>Subject</th>
-                    <th>From</th>
-                    <th>Received</th>
-                    <th class="num">Attachments</th>
-                    <th>Names / Sizes</th>
+                    <th scope="col">Subject</th>
+                    <th scope="col">From</th>
+                    <th scope="col">Received</th>
+                    <th scope="col" class="num">Attachments</th>
+                    <th scope="col">Names / Sizes</th>
                 </tr>
             </thead>
             <tbody>
@@ -69,7 +69,7 @@
         </table>
     </section>
 
-    <!-- ===== Templates for safe DOM construction (used by confirm.js) ===== -->
+    <!-- Templates for safe DOM construction (used by confirm.js) -->
     <template id="ext-row">
         <tr>
             <td class="ext"></td>
@@ -84,7 +84,7 @@
             <td class="from"></td>
             <td class="date"></td>
             <td class="num attach-count"></td>
-            <td class="names"></td> <!-- previous .attach-list equivalent -->
+            <td class="names"></td>
         </tr>
     </template>
 
@@ -99,16 +99,15 @@
             <td class="muted" colspan="5">No messages with attachments</td>
         </tr>
     </template>
-    <!-- ===== End templates ===== -->
 
     <footer>
-        <!-- Banners (kept hidden until used by confirm.js) -->
-        <div id="warn" class="warn" hidden></div>
-        <div id="error" class="error" hidden></div>
+        <!-- Banners (hidden until used by confirm.js) -->
+        <div id="warn" class="warn" hidden role="alert" aria-live="polite"></div>
+        <div id="error" class="error" hidden role="alert" aria-live="polite"></div>
 
         <div class="buttons">
-            <button id="cancel" class="secondary">Cancel</button>
-            <button id="ok" class="primary">Delete</button>
+            <button id="cancel" class="secondary" type="button">Cancel</button>
+            <button id="ok" class="primary" type="button">Delete</button>
         </div>
     </footer>
 

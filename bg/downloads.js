@@ -97,7 +97,7 @@
             }
 
             if (attempt < MAX_DOWNLOAD_RETRIES) {
-                await sleep(RETRY_BACKOFF_MS * attempt); // 逓増バックオフ
+                await BD.utils.sleep(RETRY_BACKOFF_MS * attempt); // 逓増バックオフ
             }
         }
         return { ok: false };

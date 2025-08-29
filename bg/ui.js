@@ -139,3 +139,51 @@
     UI.createMenus = createMenus;
 
 })(globalThis.BD);
+
+// bg/ui.js （追記ブロック）
+(function (BD) {
+    'use strict';
+    const api = BD.api || (typeof messenger !== 'undefined' ? messenger : browser);
+
+    function _uuid() { return `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`; }
+
+    /**
+     * 進捗ページを開いて、メッセージ送信用コントローラを返す
+     * 送受信は runtime.sendMessage のブロードキャスト＋ key で識別（tabs 権限不要）
+     */
+    async function openProgressPage({ total = 0 } = {}) {
+        const key = _uuid();
+        const url = api.runtime.getURL(`ui/progress.html?total=${encodeURIComponent(total)}&key=${encodeURIComponent(key)}`);
+
+        // ポップアップで開く（Thunderbirdは windows 権限不要で動作する）
+        try {
+            await api.windows.create({ url, type: 'popup', width: 520, height: 220 });
+        } catch {
+            // 失敗したら通常ウィンドウで
+            await api.windows.create({ url });
+        }
+
+        // ページ側からの ready を待つ（タイムアウト付き）
+        await new Promise((resolve) => {
+            const handler = (msg) => {
+                if (msg && msg.type === 'progress-ready' && msg.key === key) {
+                    try { api.runtime.onMessage.removeListener(handler); } catch { }
+                    resolve();
+                }
+            };
+            api.runtime.onMessage.addListener(handler);
+            setTimeout(() => { try { api.runtime.onMessage.removeListener(handler); } catch { } resolve(); }, 2000);
+        });
+
+        const send = (type, payload) => api.runtime.sendMessage(Object.assign({ type, key }, payload || {}));
+        return {
+            key,
+            start: (n) => send('progress-start', { n }),
+            update: (i, n) => send('progress-update', { i, n }),
+            done: () => send('progress-done'),
+            error: (message) => send('progress-error', { message })
+        };
+    }
+
+    BD.ui = Object.assign(BD.ui || {}, { openProgressPage });
+})(globalThis.BD || (globalThis.BD = {}));
