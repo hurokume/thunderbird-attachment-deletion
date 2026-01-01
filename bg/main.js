@@ -228,7 +228,8 @@
                 type: 'basic',
                 title: runResult?.cancelled ? 'Cancelled by user' : 'Backup & Deletion Completed',
                 message:
-                    `${stats.affectedMessages} messages selected\n` +
+                    `${stats.selectedMessages} messages selected\n` +
+                    `${stats.affectedMessages} messages with attachments\n` +
                     `${t.totalSaved}/${stats.totalAttachments} attachments saved\n` +
                     `${t.totalDeleted} attachments deleted${tail}`
             });

@@ -164,7 +164,14 @@
             .map(([ext, v]) => ({ ext, count: v.count, bytes: v.bytes }))
             .sort((a, b) => b.bytes - a.bytes || b.count - a.count || String(a.ext).localeCompare(String(b.ext)));
 
-        const stats = { affectedMessages: affected, totalAttachments: totalCount, totalBytes, totalSize: totalBytes, extSummary };
+        const stats = {
+            selectedMessages: messageIds.length,
+            affectedMessages: affected,
+            totalAttachments: totalCount,
+            totalBytes,
+            totalSize: totalBytes,
+            extSummary
+        };
 
         return {
             targets,

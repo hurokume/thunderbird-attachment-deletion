@@ -76,9 +76,9 @@
         });
     }
 
-    async function _getSelectionCount() {
+    async function _getSelectionCount(tabId) {
         try {
-            let page = await api.mailTabs.getSelectedMessages();
+            let page = await api.mailTabs.getSelectedMessages(tabId);
             let count = (page.messages || []).length;
             while (page.id) {
                 page = await api.messages.continueList(page.id);
@@ -214,16 +214,16 @@
         try {
             api.menus.onShown.addListener(async (info, tab) => {
                 try {
-                    // メール一覧の右クリックのみ対象
                     if (!info?.contexts || !info.contexts.includes('message_list')) return;
 
-                    const count = await _getSelectionCount();
+                    const tabId = tab?.id ?? info?.tabId;
+                    const count = await _getSelectionCount(tabId);
+
                     const title = (typeof T.menuDeleteDynamic === 'function')
                         ? T.menuDeleteDynamic(count)
                         : T.menuDelete;
 
                     await api.menus.update(id, { title });
-                    // 反映
                     try { await api.menus.refresh(); } catch { }
                 } catch (e) {
                     console.warn('menus.onShown update failed:', e?.message || e);
