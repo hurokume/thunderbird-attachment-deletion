@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
 
 <head>
     <meta charset="utf-8" />
-    <title>Bulk Attachment Deletion — Review</title>
+    <title data-i18n="confirmPageTitle">Bulk Attachment Deleter — Review</title>
     <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self';">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -12,58 +12,59 @@
 
 <body>
     <header>
-        <h1>Review before deleting</h1>
-        <p class="subtitle">Check the targets and breakdown before removing attachments from the selected messages.</p>
+        <h1 data-i18n="confirmTitle">Review before deleting</h1>
+        <p class="subtitle" data-i18n="confirmSubtitle">Check the targets and breakdown before removing attachments from the selected messages.</p>
+        <p id="backup-mode" class="subtitle"></p>
     </header>
 
     <section class="stats">
         <div class="card">
-            <div class="label">Messages with attachments</div>
+            <div class="label" data-i18n="affectedMessages">Messages with attachments</div>
             <div id="affected" class="value">—</div>
         </div>
         <div class="card">
-            <div class="label">Total attachments</div>
+            <div class="label" data-i18n="totalAttachments">Total attachments</div>
             <div id="total" class="value">—</div>
         </div>
         <div class="card">
-            <div class="label">Total size</div>
+            <div class="label" data-i18n="totalSize">Total size</div>
             <div id="bytes" class="value">—</div>
         </div>
     </section>
 
     <section>
-        <h2>By extension / size</h2>
+        <h2 data-i18n="byExtension">By extension / size</h2>
         <table id="extTable" class="grid">
             <thead>
                 <tr>
-                    <th scope="col">Extension</th>
-                    <th scope="col">Count</th>
-                    <th scope="col">Total</th>
+                    <th scope="col" data-i18n="extension">Extension</th>
+                    <th scope="col" data-i18n="count">Count</th>
+                    <th scope="col" data-i18n="total">Total</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td colspan="3" class="muted">Loading…</td>
+                    <td colspan="3" class="muted" data-i18n="loading">Loading…</td>
                 </tr>
             </tbody>
         </table>
     </section>
 
     <section>
-        <h2>Messages to process</h2>
+        <h2 data-i18n="messagesToProcess">Messages to process</h2>
         <table id="msgTable" class="grid wide">
             <thead>
                 <tr>
-                    <th scope="col">Subject</th>
-                    <th scope="col">From</th>
-                    <th scope="col">Received</th>
-                    <th scope="col" class="num">Attachments</th>
-                    <th scope="col">Names / Sizes</th>
+                    <th scope="col" data-i18n="subject">Subject</th>
+                    <th scope="col" data-i18n="from">From</th>
+                    <th scope="col" data-i18n="received">Received</th>
+                    <th scope="col" class="num" data-i18n="attachments">Attachments</th>
+                    <th scope="col" data-i18n="namesSizes">Names / Sizes</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td colspan="5" class="muted">Loading…</td>
+                    <td colspan="5" class="muted" data-i18n="loading">Loading…</td>
                 </tr>
             </tbody>
         </table>
@@ -90,13 +91,13 @@
 
     <template id="empty-row-3">
         <tr>
-            <td class="muted" colspan="3">No data</td>
+            <td class="muted" colspan="3" data-i18n="noData">No data</td>
         </tr>
     </template>
 
     <template id="empty-row-5">
         <tr>
-            <td class="muted" colspan="5">No messages with attachments</td>
+            <td class="muted" colspan="5" data-i18n="noMessagesWithAttachments">No messages with attachments</td>
         </tr>
     </template>
 
@@ -106,16 +107,15 @@
         <div id="error" class="error" hidden role="alert" aria-live="polite"></div>
 
         <div class="buttons">
-            <button id="cancel" class="secondary" type="button">Cancel</button>
-            <button id="ok" class="primary" type="button">Delete</button>
+            <button id="cancel" class="secondary" type="button" data-i18n="cancel">Cancel</button>
+            <button id="ok" class="primary" type="button" disabled data-i18n="deleteButton">Delete</button>
         </div>
     </footer>
 
+    <script src="../shared/i18n.js"></script>
     <script src="confirm.js"></script>
     <noscript>
-        <div class="error" style="margin:12px 20px;">
-            This page requires JavaScript. Please check your browser settings.
-        </div>
+        <div class="error" style="margin:12px 20px;" data-i18n="javascriptRequired">This page requires JavaScript. Please check your browser settings.</div>
     </noscript>
 </body>
 

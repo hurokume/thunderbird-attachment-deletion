@@ -1,131 +1,106 @@
-// bg/runner.js
-// 保存→検証→（成功分だけ）即削除を小刻みに実行。Cancel/クールダウン対応。
 (function (BD) {
     'use strict';
-
     const api = BD.api;
+    const { t } = globalThis.BDI18n;
+    const { sleep, throwIfAborted, withAbort } = BD.utils;
 
-    const SAVE_CHUNK = 8;
-    const DEL_CHUNK = 16;
-    const MSG_COOLDOWN_MS_DEFAULT = 5000;
-
-    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-    const parsePart = (s) => s.split('.').map(n => parseInt(n, 10)).filter(Number.isFinite);
-    const cmpPartDesc = (a, b) => {
-        const A = parsePart(a), B = parsePart(b), L = Math.max(A.length, B.length);
-        for (let i = 0; i < L; i++) { const av = A[i] ?? -1, bv = B[i] ?? -1; if (av !== bv) return bv - av; }
-        return B.length - A.length;
-    };
-
-    async function deleteAttachmentsSafely(targets) {
+    // Back up all parts of a message before modifying its MIME structure.
+    async function deleteAttachmentsSafely(targets, { signal, onResult } = {}) {
         let deleted = 0, failed = 0;
-        for (const { id, partNames: wanted } of (targets || [])) {
-            let remaining = [...wanted];
-            while (remaining.length) {
-                const liveSet = new Set((await api.messages.listAttachments(id)).map(a => a.partName));
-                const candidates = remaining.filter(p => liveSet.has(p)).sort(cmpPartDesc);
-                if (!candidates.length) break;
-
-                const chunk = candidates.slice(0, DEL_CHUNK);
-                try {
-                    await api.messages.deleteAttachments(id, chunk);
-                    deleted += chunk.length;
-                } catch (e) {
-                    for (const p of chunk) {
-                        try { await api.messages.deleteAttachments(id, [p]); deleted++; }
-                        catch (ee) { console.warn('delete one failed', id, p, ee?.message || ee); failed++; }
-                    }
-                }
-                const done = new Set(chunk);
-                remaining = remaining.filter(p => !done.has(p));
-                await sleep(0);
+        for (const { id, partNames } of targets) {
+            throwIfAborted(signal);
+            if (!partNames.length) continue;
+            let liveSet;
+            try {
+                const live = await withAbort(api.messages.listAttachments(id), signal);
+                liveSet = new Set(live.filter(a => a.contentType !== 'text/x-moz-deleted').map(a => a.partName));
+                throwIfAborted(signal);
+            } catch (error) {
+                if (error.name === 'AbortError') throw error;
+                failed += partNames.length;
+                for (const partName of partNames) await onResult?.({ id, partName, ok: false, error: error.message || String(error) });
+                continue;
+            }
+            const candidates = partNames.filter(p => liveSet.has(p));
+            for (const partName of partNames.filter(p => !liveSet.has(p))) {
+                failed++;
+                await onResult?.({ id, partName, ok: false, error: t('attachmentChanged') });
+            }
+            if (!candidates.length) continue;
+            // Do not race this destructive call against cancellation. An already
+            // submitted call must settle before releasing the run lock.
+            let error;
+            try {
+                throwIfAborted(signal);
+                await api.messages.deleteAttachments(id, candidates);
+            } catch (e) {
+                if (e.name === 'AbortError') throw e;
+                error = e.message || String(e);
+            }
+            for (const partName of candidates) {
+                if (error) failed++; else deleted++;
+                await onResult?.({ id, partName, ok: !error, error });
             }
         }
         return { deleted, failed };
     }
 
-    /**
-     * @param {{id:number|string, partNames:string[]}[]} targets
-     * @param {Map|Object|undefined} metaById
-     * @param {{ perFileDelayMs?: number, cooldownAfterEachMessageMs?: number, onProgress?: function, shouldCancel?: function }} [opts]
-     */
-    async function runBackupThenDelete(targets, metaById, opts = {}) {
-        const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : () => { };
-        const cooldownMs = Number.isFinite(opts.cooldownAfterEachMessageMs)
-            ? opts.cooldownAfterEachMessageMs
-            : MSG_COOLDOWN_MS_DEFAULT;
-        const shouldCancel = typeof opts.shouldCancel === 'function' ? opts.shouldCancel : () => false;
-
-        const saveAll =
-            (BD.mail && typeof BD.mail.saveAllAttachmentsVerified === 'function')
-                ? BD.mail.saveAllAttachmentsVerified
-                : (typeof globalThis.saveAllAttachmentsVerified === 'function'
-                    ? globalThis.saveAllAttachmentsVerified
-                    : null);
-
-        if (!saveAll) throw new Error('saveAllAttachmentsVerified not available');
-
-        const safeMeta = metaById ?? new Map();
-
-        let totalToDelete = 0, totalSaved = 0, totalDeleted = 0, totalFailedSave = 0, totalFailedDelete = 0;
-        for (const t of targets || []) totalToDelete += (t.partNames?.length || 0);
-        onProgress({ phase: 'start', totalToDelete });
-
+    async function runBackupThenDelete(targets, metaById, options = {}) {
+        const { signal, onProgress = () => {} } = options;
+        const settings = options.settings || await BD.settings.getSettings();
+        const totals = {
+            totalToDelete: targets.reduce((sum, t) => sum + t.partNames.length, 0),
+            totalSaved: 0, totalDeleted: 0, totalFailedSave: 0, totalFailedDelete: 0,
+            totalProcessed: 0
+        };
+        const issues = [], savedFiles = [];
         let cancelled = false;
-
-        outer:
-        for (let idx = 0; idx < (targets || []).length; idx++) {
-            if (shouldCancel()) { cancelled = true; break outer; }
-            const { id, partNames } = targets[idx];
-            let rest = Array.isArray(partNames) ? [...partNames] : [];
-
-            while (rest.length) {
-                if (shouldCancel()) { cancelled = true; break; }
-
-                const saveChunk = rest.slice(0, SAVE_CHUNK);
-
-                // 1) 保存＋検証（このチャンクだけ）
-                const { successMap, failCount, savedCount } =
-                    await saveAll([{ id, partNames: saveChunk }], safeMeta);
-
-                totalSaved += savedCount;
-                totalFailedSave += failCount;
-
-                const okSet = successMap.get(id) || new Set();
-                const okParts = [...okSet];
-
-                // 2) 成功分だけ即削除
-                if (okParts.length) {
-                    const { deleted, failed } = await deleteAttachmentsSafely([{ id, partNames: okParts }]);
-                    totalDeleted += deleted;
-                    totalFailedDelete += failed;
+        const report = phase => onProgress({ phase, totals: { ...totals }, backupEnabled: settings.backupEnabled });
+        try {
+            await report('start');
+            for (let index = 0; index < targets.length; index++) {
+                throwIfAborted(signal);
+                const { id, partNames } = targets[index];
+                let eligible = partNames;
+                if (settings.backupEnabled) {
+                    const saved = await BD.mail.saveAllAttachmentsVerified([{ id, partNames }], metaById, {
+                        settings, signal,
+                        onResult: async result => {
+                            if (result.ok) {
+                                totals.totalSaved++;
+                                savedFiles.push({ id, partName: result.partName, path: result.finalPath });
+                            } else {
+                                totals.totalFailedSave++;
+                                totals.totalProcessed++;
+                                issues.push({ ...result, stage: 'backup' });
+                            }
+                            await report('backup');
+                        }
+                    });
+                    eligible = [...(saved.successMap.get(id) || [])];
                 }
-
-                // 3) 次の保存対象を更新
-                const okFast = new Set(okParts);
-                rest = rest.filter(p => !okFast.has(p));
-
-                onProgress({
-                    phase: 'progress',
-                    messageId: id,
-                    savedThisChunk: savedCount,
-                    deletedThisChunk: okParts.length,
-                    remainingForMessage: rest.length,
-                    totals: { totalSaved, totalDeleted, totalFailedSave, totalFailedDelete, totalToDelete }
+                throwIfAborted(signal);
+                await deleteAttachmentsSafely([{ id, partNames: eligible }], {
+                    signal,
+                    onResult: async result => {
+                        if (result.ok) totals.totalDeleted++;
+                        else { totals.totalFailedDelete++; issues.push({ ...result, stage: 'delete' }); }
+                        totals.totalProcessed++;
+                        await report('delete');
+                    }
                 });
+                throwIfAborted(signal);
+                if (index < targets.length - 1 && settings.cooldownAfterEachMessageMs) {
+                    await sleep(settings.cooldownAfterEachMessageMs, signal);
+                }
             }
-
-            if (cancelled) break;
-            if (cooldownMs > 0 && idx < targets.length - 1) {
-                if (shouldCancel()) { cancelled = true; break; }
-                await sleep(cooldownMs);
-            }
+        } catch (error) {
+            if (error.name !== 'AbortError') throw error;
+            cancelled = true;
         }
-
-        onProgress({ phase: 'done', totals: { totalSaved, totalDeleted, totalFailedSave, totalFailedDelete, totalToDelete }, cancelled });
-        return { totals: { totalSaved, totalDeleted, totalFailedSave, totalFailedDelete, totalToDelete }, cancelled };
+        totals.totalUnprocessed = totals.totalToDelete - totals.totalProcessed;
+        return { totals, issues, savedFiles, cancelled, backupEnabled: settings.backupEnabled };
     }
 
     BD.runner = { runBackupThenDelete, deleteAttachmentsSafely };
-})(globalThis.BD || (globalThis.BD = {}));
+})(globalThis.BD);

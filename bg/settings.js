@@ -1,68 +1,54 @@
-// bg/settings.js
 (function (BD) {
     'use strict';
-    const api = BD.api || (typeof messenger !== 'undefined' ? messenger : browser);
-
-    const STORAGE_KEY = 'settings.saveRoot';
-    const DEFAULT_ROOT = 'BulkAttachmentBackup'; // Downloads フォルダ直下の既定サブフォルダ
-    let _cache = null; // 文字列 or null(未ロード)
-
-    // "foo/bar" のようなサブパスを安全化（各セグメントをサニタイズ）
-    function sanitizeSubpath(path) {
-        const { sanitizePathSegment } = BD.utils;
-        const parts = String(path || '')
-            .split('/')
-            .map(p => sanitizePathSegment(p, { max: 60 }))
-            .filter(p => !!p);
-        // 空なら既定値へ
-        return parts.length ? parts.join('/') : DEFAULT_ROOT;
-    }
-
-    async function load() {
-        try {
-            const got = await api.storage.local.get(STORAGE_KEY);
-            const v = got[STORAGE_KEY];
-            if (typeof v === 'string' && v.trim()) {
-                _cache = sanitizeSubpath(v);
-            } else {
-                _cache = DEFAULT_ROOT;
-            }
-        } catch {
-            _cache = DEFAULT_ROOT;
-        }
-        return _cache;
-    }
-
-    async function getSaveRoot() {
-        if (typeof _cache === 'string' && _cache) return _cache;
-        return load();
-    }
-
-    async function setSaveRoot(v) {
-        const sanitized = sanitizeSubpath(v);
-        _cache = sanitized;
-        await api.storage.local.set({ [STORAGE_KEY]: sanitized });
-        return sanitized;
-    }
-
-    // options ページからのメッセージを処理
-    api.runtime.onMessage.addListener((msg) => {
-        if (!msg || typeof msg !== 'object') return;
-        if (msg.type === 'get-save-root') {
-            return (async () => ({ ok: true, value: await getSaveRoot() }))();
-        }
-        if (msg.type === 'set-save-root') {
-            return (async () => {
-                const value = await setSaveRoot(msg.value ?? '');
-                return { ok: true, value };
-            })();
-        }
+    const api = BD.api;
+    const { t, number } = globalThis.BDI18n;
+    const DEFAULT_ROOT = 'BulkAttachmentBackup';
+    const defaults = Object.freeze({
+        saveRoot: DEFAULT_ROOT, saveMode: 'inherit', backupEnabled: true,
+        perFileDelayMs: 0, cooldownAfterEachMessageMs: 0
     });
 
-    BD.settings = Object.assign(BD.settings || {}, {
-        getSaveRoot,
-        setSaveRoot,
-        _sanitizeSubpath: sanitizeSubpath, // テスト/オプションUIからの使用も可
-        DEFAULT_ROOT
+    function sanitizeSubpath(value) {
+        const text = String(value || '').trim().replace(/\\/g, '/');
+        if (!text) return DEFAULT_ROOT;
+        if (text.startsWith('/') || /^[a-z]:/i.test(text) || text.split('/').includes('..')) {
+            throw new Error(t('invalidSubfolder'));
+        }
+        const path = text.split('/').map(p => p.trim()).filter(p => p && p !== '.')
+            .map(p => BD.utils.sanitizePathSegment(p, { max: 60 })).join('/');
+        if (new TextEncoder().encode(path).length > 120) throw new Error(t('subfolderTooLong', number(120)));
+        return path || DEFAULT_ROOT;
+    }
+
+    function normalize(values) {
+        const delay = v => Math.min(60000, Math.max(0, Math.floor(Number(v) || 0)));
+        return {
+            saveRoot: sanitizeSubpath(values.saveRoot),
+            saveMode: ['inherit', 'ask', 'automatic'].includes(values.saveMode) ? values.saveMode : 'inherit',
+            backupEnabled: values.backupEnabled !== false,
+            perFileDelayMs: delay(values.perFileDelayMs),
+            cooldownAfterEachMessageMs: delay(values.cooldownAfterEachMessageMs)
+        };
+    }
+
+    async function getSettings() {
+        const stored = await api.storage.local.get(Object.keys(defaults).map(key => 'settings.' + key));
+        return normalize(Object.fromEntries(Object.entries(defaults).map(([key, value]) =>
+            [key, stored['settings.' + key] ?? value])));
+    }
+
+    async function setSettings(values) {
+        const settings = normalize({ ...await getSettings(), ...values });
+        await api.storage.local.set(Object.fromEntries(Object.entries(settings).map(([key, value]) =>
+            ['settings.' + key, value])));
+        return settings;
+    }
+
+    api.runtime.onMessage.addListener(msg => {
+        if (msg?.type === 'get-settings') return getSettings().then(value => ({ ok: true, value }));
+        if (msg?.type === 'set-settings') return setSettings(msg.value || {}).then(value => ({ ok: true, value }));
+        if (msg?.type === 'reset-settings') return setSettings(defaults).then(value => ({ ok: true, value }));
     });
-})(globalThis.BD || (globalThis.BD = {}));
+
+    BD.settings = { getSettings, setSettings, defaults, DEFAULT_ROOT, sanitizeSubpath };
+})(globalThis.BD);
