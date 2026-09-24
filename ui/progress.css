@@ -131,3 +131,6 @@ button.secondary {
 button.secondary:hover {
     background: rgba(0, 0, 0, .04);
 }
+
+#results { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+#summary { line-height: 1.7; }

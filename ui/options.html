@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en" dir="ltr">
 
 <head>
     <meta charset="utf-8" />
-    <title>Bulk Attachment Deleter — Options</title>
+    <title data-i18n="settingsPageTitle">Bulk Attachment Deleter — Settings</title>
     <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; img-src 'self'; style-src 'self'; script-src 'self';">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -12,28 +12,40 @@
 
 <body>
     <header>
-        <h1 id="title">設定</h1>
-        <p class="subtitle" id="subtitle">保存先フォルダ（Downloads 下）を指定します。</p>
+        <h1 id="title" data-i18n="settingsTitle">Settings</h1>
+        <p class="subtitle" id="subtitle" data-i18n="settingsSubtitle">Choose how attachments are backed up before deletion.</p>
     </header>
 
     <main>
+        <label class="check"><input id="backup" type="checkbox" checked /> <span id="labelBackup" data-i18n="settingsBackup">Back up attachments before deleting (recommended)</span></label>
+        <div id="backup-warning" class="err" hidden></div>
         <label class="field">
-            <span id="labelDir">保存先ディレクトリ</span>
+            <span id="labelDir" data-i18n="settingsDir">Backup subfolder</span>
             <input id="dir" type="text" spellcheck="false" autocomplete="off" />
-            <small id="hint">Downloads フォルダ配下のサブフォルダです。例: MyBackups/Attachments</small>
+            <small id="hint" data-i18n="settingsHint">Relative to Thunderbird’s configured download folder. Example: MyBackups/Attachments</small>
         </label>
+        <label class="field"><span id="labelMode" data-i18n="settingsMode">Save location</span>
+            <select id="mode">
+                <option id="inherit" value="inherit" data-i18n="settingsInherit">Use Thunderbird settings</option>
+                <option id="ask" value="ask" data-i18n="settingsAsk">Ask for every file</option>
+                <option id="automatic" value="automatic" data-i18n="settingsAutomatic">Save automatically</option>
+            </select>
+        </label>
+        <label class="field"><span id="labelFileDelay" data-i18n="settingsFileDelay">Delay between files (milliseconds)</span><input id="fileDelay" type="number" min="0" max="60000" value="0" /></label>
+        <label class="field"><span id="labelMessageDelay" data-i18n="settingsMessageDelay">Delay between messages (milliseconds)</span><input id="messageDelay" type="number" min="0" max="60000" value="0" /></label>
 
         <div class="preview" id="preview"></div>
 
         <div class="actions">
-            <button id="save" class="primary">保存</button>
-            <button id="reset" class="secondary">既定に戻す</button>
+            <button id="save" class="primary" data-i18n="save">Save</button>
+            <button id="reset" class="secondary" data-i18n="resetDefaults">Reset to defaults</button>
         </div>
 
         <div id="msg" class="msg" hidden></div>
         <div id="err" class="err" hidden></div>
     </main>
 
+    <script src="../shared/i18n.js"></script>
     <script src="options.js"></script>
 </body>
 

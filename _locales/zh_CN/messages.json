@@ -1,0 +1,449 @@
+{
+  "extensionName": {
+    "message": "Bulk Attachment Deleter"
+  },
+  "extensionDescription": {
+    "message": "批量删除 Thunderbird 中所选邮件的附件。"
+  },
+  "locale": {
+    "message": "zh-CN",
+    "description": "BCP 47 tag for this translation, used for document language and Intl formatting."
+  },
+  "direction": {
+    "message": "ltr",
+    "description": "Document writing direction: ltr or rtl."
+  },
+  "menuDelete": {
+    "message": "删除所选邮件的附件…"
+  },
+  "cancel": {
+    "message": "取消"
+  },
+  "close": {
+    "message": "关闭"
+  },
+  "continueButton": {
+    "message": "继续"
+  },
+  "deleteButton": {
+    "message": "删除"
+  },
+  "deleteWithoutBackup": {
+    "message": "不备份直接删除"
+  },
+  "save": {
+    "message": "保存"
+  },
+  "resetDefaults": {
+    "message": "恢复默认"
+  },
+  "saved": {
+    "message": "已保存。"
+  },
+  "completed": {
+    "message": "已完成"
+  },
+  "completedWithErrors": {
+    "message": "部分处理失败"
+  },
+  "cancelled": {
+    "message": "已取消"
+  },
+  "cancelling": {
+    "message": "正在取消…"
+  },
+  "error": {
+    "message": "错误"
+  },
+  "warning": {
+    "message": "警告"
+  },
+  "loading": {
+    "message": "载入中…"
+  },
+  "noData": {
+    "message": "没有数据"
+  },
+  "noMessagesWithAttachments": {
+    "message": "没有包含附件的邮件"
+  },
+  "noSubject": {
+    "message": "（无主题）"
+  },
+  "noName": {
+    "message": "（无名称）"
+  },
+  "unknownType": {
+    "message": "未知"
+  },
+  "javascriptRequired": {
+    "message": "此页面需要 JavaScript。请检查浏览器设置。"
+  },
+  "confirmPageTitle": {
+    "message": "Bulk Attachment Deleter — 删除前确认"
+  },
+  "confirmTitle": {
+    "message": "删除前确认"
+  },
+  "confirmSubtitle": {
+    "message": "在删除所选邮件的附件之前，请检查目标与明细。"
+  },
+  "affectedMessages": {
+    "message": "含附件的邮件数"
+  },
+  "totalAttachments": {
+    "message": "附件总数"
+  },
+  "totalSize": {
+    "message": "总大小"
+  },
+  "byExtension": {
+    "message": "按扩展名 / 大小"
+  },
+  "messagesToProcess": {
+    "message": "待处理邮件"
+  },
+  "extension": {
+    "message": "扩展名"
+  },
+  "count": {
+    "message": "数量"
+  },
+  "total": {
+    "message": "合计"
+  },
+  "subject": {
+    "message": "主题"
+  },
+  "from": {
+    "message": "发件人"
+  },
+  "received": {
+    "message": "接收时间"
+  },
+  "attachments": {
+    "message": "附件数"
+  },
+  "namesSizes": {
+    "message": "名称 / 大小"
+  },
+  "manyMessages": {
+    "message": "已选择 $COUNT$ 封邮件。处理可能需要一些时间。",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "101"
+      }
+    }
+  },
+  "backupLocation": {
+    "message": "删除前将备份附件。子文件夹：$PATH$",
+    "placeholders": {
+      "path": {
+        "content": "$1",
+        "example": "MyBackups/Attachments"
+      }
+    }
+  },
+  "backupDisabledConfirmation": {
+    "message": "备份已禁用。附件将被永久删除，且不创建备份。"
+  },
+  "missingKey": {
+    "message": "缺少标识键。此页面可能不是由附加组件打开的。"
+  },
+  "storageUnavailable": {
+    "message": "存储不可用。请重新加载附加组件后重试。"
+  },
+  "previewNotFound": {
+    "message": "未找到预览数据。请重新运行。"
+  },
+  "loadFailed": {
+    "message": "无法加载数据。"
+  },
+  "preflightPageTitle": {
+    "message": "Bulk Attachment Deleter — 大量选择确认"
+  },
+  "preflightTitle": {
+    "message": "评估前确认"
+  },
+  "preflightSubtitle": {
+    "message": "扫描邮件之前，请确认是否继续。"
+  },
+  "selectedMessages": {
+    "message": "已选择邮件：$COUNT$ 封",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "101"
+      }
+    }
+  },
+  "preflightHint": {
+    "message": "选择超过 100 封邮件时，扫描和备份可能需要一些时间。"
+  },
+  "preflightInstructions": {
+    "message": "尚未扫描或修改任何邮件。选择“继续”以扫描邮件并查看附件列表。"
+  },
+  "operationInactive": {
+    "message": "操作已结束。请关闭此窗口并重试。"
+  },
+  "progressPageTitle": {
+    "message": "Bulk Attachment Deleter — 进度"
+  },
+  "progressTitle": {
+    "message": "进度"
+  },
+  "scanning": {
+    "message": "正在读取邮件"
+  },
+  "processing": {
+    "message": "正在处理附件"
+  },
+  "progressScanCount": {
+    "message": "正在读取邮件：$CURRENT$ / $TOTAL$ 封",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "101"
+      },
+      "total": {
+        "content": "$2",
+        "example": "101"
+      }
+    }
+  },
+  "progressAttachmentCount": {
+    "message": "正在处理附件：$CURRENT$ / $TOTAL$ 个",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "101"
+      },
+      "total": {
+        "content": "$2",
+        "example": "101"
+      }
+    }
+  },
+  "progressSummary": {
+    "message": "已保存：$SAVED$ · 已删除：$DELETED$ · 失败：$FAILED$ · 未处理：$PENDING$",
+    "placeholders": {
+      "saved": {
+        "content": "$1",
+        "example": "101"
+      },
+      "deleted": {
+        "content": "$2",
+        "example": "101"
+      },
+      "failed": {
+        "content": "$3",
+        "example": "101"
+      },
+      "pending": {
+        "content": "$4",
+        "example": "101"
+      }
+    }
+  },
+  "progressBarLabel": {
+    "message": "附件处理进度"
+  },
+  "resultsAndPaths": {
+    "message": "处理结果和备份路径"
+  },
+  "backupDisabled": {
+    "message": "备份已禁用。"
+  },
+  "communicationFailed": {
+    "message": "操作无响应。请关闭此窗口并重试。"
+  },
+  "stageBackup": {
+    "message": "备份"
+  },
+  "stageDelete": {
+    "message": "删除"
+  },
+  "issueDetail": {
+    "message": "$STAGE$ · 邮件 $MESSAGE$ / $PART$：$ERROR$",
+    "placeholders": {
+      "stage": {
+        "content": "$1",
+        "example": "Backup"
+      },
+      "message": {
+        "content": "$2",
+        "example": "101"
+      },
+      "part": {
+        "content": "$3",
+        "example": "1.2"
+      },
+      "error": {
+        "content": "$4",
+        "example": "Backup could not be verified."
+      }
+    }
+  },
+  "backupPathDetail": {
+    "message": "邮件 $MESSAGE$ / $PART$：$PATH$",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "101"
+      },
+      "part": {
+        "content": "$2",
+        "example": "1.2"
+      },
+      "path": {
+        "content": "$3",
+        "example": "MyBackups/Attachments"
+      }
+    }
+  },
+  "settingsPageTitle": {
+    "message": "Bulk Attachment Deleter — 设置"
+  },
+  "settingsTitle": {
+    "message": "设置"
+  },
+  "settingsSubtitle": {
+    "message": "设置删除附件前的备份方式。"
+  },
+  "settingsDir": {
+    "message": "备份子文件夹"
+  },
+  "settingsHint": {
+    "message": "相对于 Thunderbird 配置的下载文件夹。例如：MyBackups/Attachments"
+  },
+  "settingsBackup": {
+    "message": "删除前备份附件（推荐）"
+  },
+  "settingsMode": {
+    "message": "保存位置"
+  },
+  "settingsInherit": {
+    "message": "遵循 Thunderbird 设置"
+  },
+  "settingsAsk": {
+    "message": "每个文件都询问"
+  },
+  "settingsAutomatic": {
+    "message": "自动保存"
+  },
+  "settingsFileDelay": {
+    "message": "文件间隔（毫秒）"
+  },
+  "settingsMessageDelay": {
+    "message": "邮件间隔（毫秒）"
+  },
+  "settingsSaveFailed": {
+    "message": "无法保存设置。"
+  },
+  "settingsLoadFailed": {
+    "message": "无法加载设置。"
+  },
+  "settingsBackupWarning": {
+    "message": "备份已禁用。无法通过此附加组件恢复已删除的附件。"
+  },
+  "settingsPreview": {
+    "message": "子文件夹：$PATH$",
+    "placeholders": {
+      "path": {
+        "content": "$1",
+        "example": "MyBackups/Attachments"
+      }
+    }
+  },
+  "invalidSubfolder": {
+    "message": "请使用不含盘符或“..”的相对子文件夹路径。"
+  },
+  "subfolderTooLong": {
+    "message": "保存子文件夹路径过长（最多 $LIMIT$ 字节）。",
+    "placeholders": {
+      "limit": {
+        "content": "$1",
+        "example": "120"
+      }
+    }
+  },
+  "alreadyRunning": {
+    "message": "正在运行"
+  },
+  "alreadyRunningMessage": {
+    "message": "请等待当前操作完成或将其取消。"
+  },
+  "deletionUnavailable": {
+    "message": "无法删除附件。需要 Thunderbird 128 或更高版本以及 messagesModifyPermanent 权限。"
+  },
+  "noSelection": {
+    "message": "未选择邮件"
+  },
+  "selectMessages": {
+    "message": "请选择要处理的邮件。"
+  },
+  "noDeletableAttachments": {
+    "message": "没有可删除的附件"
+  },
+  "noDeletableMessage": {
+    "message": "所选邮件中未找到可删除的附件。"
+  },
+  "cancelledMessage": {
+    "message": "操作已取消。已完成的更改将保留。"
+  },
+  "operationFailed": {
+    "message": "附件处理失败"
+  },
+  "progressNotReady": {
+    "message": "进度窗口未能准备就绪。未删除任何附件。"
+  },
+  "progressDisconnected": {
+    "message": "进度窗口连接已断开。"
+  },
+  "backupNotVerified": {
+    "message": "无法验证备份。"
+  },
+  "downloadTimedOut": {
+    "message": "备份下载超时。"
+  },
+  "downloadInterrupted": {
+    "message": "备份下载已中断。"
+  },
+  "downloadCancelled": {
+    "message": "已取消保存备份。"
+  },
+  "backupFileMissing": {
+    "message": "下载后未找到备份文件。"
+  },
+  "attachmentChanged": {
+    "message": "附件已更改或不再可用。"
+  },
+  "errorWithDetails": {
+    "message": "$SUMMARY$ 详细信息：$DETAILS$",
+    "description": "Keep the diagnostic DETAILS verbatim; translate only surrounding text.",
+    "placeholders": {
+      "summary": {
+        "content": "$1",
+        "example": "Could not save settings."
+      },
+      "details": {
+        "content": "$2",
+        "example": "FILE_ACCESS_DENIED"
+      }
+    }
+  },
+  "fileSize": {
+    "message": "$VALUE$ $UNIT$",
+    "placeholders": {
+      "value": {
+        "content": "$1",
+        "example": "101"
+      },
+      "unit": {
+        "content": "$2",
+        "example": "KB"
+      }
+    }
+  }
+}

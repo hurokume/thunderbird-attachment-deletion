@@ -1,14 +1,14 @@
 // bg/mail.js
 // 添付ファイルの評価と保存（本文保存は行わない）
-// - 保存先は BD.settings.getSaveRoot() で取得（ユーザー設定可能）
+// - 保存先は実行開始時の設定を使用
 // - ファイル名/件名はサニタイズして安全化
-// - 各添付ファイル保存の間に 1 秒スリープ（finally）
 
 (function (BD) {
     'use strict';
 
     const api = BD.api;
-    const { timestampFromDate, sanitizePathSegment, sanitizeFilename } = BD.utils;
+    const { t, date } = globalThis.BDI18n;
+    const { timestampFromDate, backupFilename, throwIfAborted, withAbort, sleep } = BD.utils;
     const { downloadViaBlobAndVerify } = BD.downloads;
 
     /* ========= helpers ========= */
@@ -77,14 +77,14 @@
 
     /* ========= selection ========= */
 
-    async function getAllSelectedMessageIds() {
-        let page = await api.mailTabs.getSelectedMessages();
+    async function getAllSelectedMessageIds(tabId) {
+        let page = await api.mailTabs.getSelectedMessages(tabId);
         const ids = [...(page.messages || []).map(m => m.id)];
         while (page.id) {
             page = await api.messages.continueList(page.id);
             ids.push(...(page.messages || []).map(m => m.id));
         }
-        return ids;
+        return [...new Set(ids)];
     }
 
     /* ========= build targets & stats ========= */
@@ -99,7 +99,7 @@
      *   idsWithAttachments: Array<any>
      * }}
      */
-    async function buildTargetsAndStats(messageIds) {
+    async function buildTargetsAndStats(messageIds, options = {}) {
         let totalBytes = 0, totalCount = 0, affected = 0;
         const targets = [];
         const byExt = new Map();
@@ -107,15 +107,17 @@
         const metaById = new Map();
 
         for (const id of messageIds) {
-            const meta = await api.messages.get(id);
-            const recvDate = await deriveReceivedDate(id, meta?.date);
+            throwIfAborted(options.signal);
+            const meta = await withAbort(api.messages.get(id), options.signal);
+            const recvDate = await withAbort(deriveReceivedDate(id, meta?.date), options.signal);
             const stamp = timestampFromDate(recvDate);
 
-            const atts = await api.messages.listAttachments(id);
+            const atts = await withAbort(api.messages.listAttachments(id), options.signal);
+            throwIfAborted(options.signal);
             const usable = (atts || [])
                 .filter(a => a.contentType !== 'text/x-moz-deleted')
                 .map(a => ({
-                    name: a.name || '(no name)',
+                    name: a.name || t('noName'),
                     size: Number(a.size || 0),
                     contentType: a.contentType || '',
                     partName: a.partName
@@ -124,13 +126,13 @@
             if (usable.length) {
                 affected++;
                 targets.push({ id, partNames: usable.map(a => a.partName) });
-                metaById.set(id, { subject: meta.subject || '(no subject)', stampDate: recvDate, stamp });
+                metaById.set(id, { subject: meta.subject || t('noSubject'), stampDate: recvDate, stamp });
 
                 messages.push({
                     id,
-                    subject: meta.subject || '(no subject)',
+                    subject: meta.subject || t('noSubject'),
                     author: meta.author || '',
-                    date: recvDate.toLocaleString(),
+                    date: date(recvDate),
                     attachments: usable.map(({ name, size, contentType }) => ({ name, size, contentType }))
                 });
 
@@ -140,7 +142,7 @@
                         const m = /\.[^.]+$/.exec(a.name || '');
                         if (m) return m[0].slice(1).toLowerCase();
                         const ct = (a.contentType || '').split('/')[1];
-                        return (ct || 'unknown').toLowerCase();
+                        return (ct || '').toLowerCase();
                     })();
                     const cur = byExt.get(ext) || { count: 0, bytes: 0 };
                     cur.count += 1; cur.bytes += a.size || 0;
@@ -148,16 +150,17 @@
                 }
             } else {
                 if (!metaById.has(id)) {
-                    metaById.set(id, { subject: meta.subject || '(no subject)', stampDate: recvDate, stamp });
+                    metaById.set(id, { subject: meta.subject || t('noSubject'), stampDate: recvDate, stamp });
                 }
                 messages.push({
                     id,
-                    subject: meta.subject || '(no subject)',
+                    subject: meta.subject || t('noSubject'),
                     author: meta.author || '',
-                    date: recvDate.toLocaleString(),
+                    date: date(recvDate),
                     attachments: []
                 });
             }
+            await options.onProgress?.({ i: messages.length, n: messageIds.length });
         }
 
         const extSummary = [...byExt.entries()]
@@ -182,62 +185,37 @@
         };
     }
 
-    /* ========= save: attachments (with verify & per-file delay) ========= */
-
-    /**
-     * 添付を保存（検証つき）
-     * - 保存先は設定のルート配下：{root}/{stamp}_{title}_{filename}
-     * - 1ファイル保存ごとに 1000ms 待機
-     * @param {{id:any, partNames:string[]}[]} targets
-     * @param {Map|Object} metaById
-     * @returns {{successMap: Map<any, Set<string>>, failCount:number, savedCount:number}}
-     */
-    async function saveAllAttachmentsVerified(targets, metaById) {
-        if (!api?.downloads?.download) throw new Error("downloads API unavailable (missing 'downloads' permission?)");
-
-        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-        const PER_FILE_DELAY_MS = 1000;
-
-        // ユーザー設定の保存先ルート（Downloads 下のサブディレクトリ）を取得
-        const root = await BD.settings.getSaveRoot();
-
+    // A failed backup is returned once. The runner never retries this outer loop.
+    async function saveAllAttachmentsVerified(targets, metaById, options = {}) {
+        const settings = options.settings || await BD.settings.getSettings();
+        const { signal, onResult } = options;
         const successMap = new Map();
-        let failCount = 0, savedCount = 0;
-
-        for (const { id, partNames } of (targets || [])) {
+        let failCount = 0, savedCount = 0, first = true;
+        for (const { id, partNames } of targets) {
             const meta = getMeta(metaById, id);
-            // 件名はパスの一部なので「セグメント」としてサニタイズ
-            const title = sanitizePathSegment(meta.subject || 'no_subject', { max: 120 });
-            const stamp = meta.stamp || timestampFromDate(meta.stampDate || new Date());
-
             const okSet = new Set();
-
-            for (let i = 0; i < (partNames || []).length; i++) {
-                const partName = partNames[i];
+            for (const partName of partNames) {
+                throwIfAborted(signal);
+                if (!first && settings.perFileDelayMs) await sleep(settings.perFileDelayMs, signal);
+                first = false;
+                let result;
                 try {
-                    const file = await api.messages.getAttachmentFile(id, partName);
-                    // 実ファイル名は拡張子保持でサニタイズ
-                    const orig = sanitizeFilename(file?.name || 'attachment', { max: 180 });
-
-                    // 設定されたフォルダ配下に保存
-                    const logicalPath = `${root}/${stamp}_${title}_${orig}`;
-
-                    const res = await downloadViaBlobAndVerify(file, logicalPath);
-                    if (res?.ok) { okSet.add(partName); savedCount++; }
-                    else { failCount++; console.warn('verify failed for', logicalPath); }
-                } catch (e) {
-                    failCount++;
-                    console.warn('attachment save error:', e?.message || e);
-                } finally {
-                    if (i < (partNames.length - 1)) {
-                        await delay(PER_FILE_DELAY_MS);
-                    }
+                    const file = await withAbort(api.messages.getAttachmentFile(id, partName), signal);
+                    throwIfAborted(signal);
+                    const nameBudget = Math.min(180, 220 - new TextEncoder().encode(settings.saveRoot).length - 1);
+                    const path = settings.saveRoot + '/' + backupFilename(meta, file.name, id, partName, nameBudget);
+                    result = await downloadViaBlobAndVerify(file, path, { signal, saveMode: settings.saveMode });
+                    throwIfAborted(signal);
+                } catch (error) {
+                    if (error.name === 'AbortError') throw error;
+                    result = { ok: false, error: error.message || String(error) };
                 }
+                if (result.ok) { okSet.add(partName); savedCount++; }
+                else failCount++;
+                await onResult?.({ id, partName, ...result });
             }
-
-            if (okSet.size > 0) successMap.set(id, okSet);
+            if (okSet.size) successMap.set(id, okSet);
         }
-
         return { successMap, failCount, savedCount };
     }
 

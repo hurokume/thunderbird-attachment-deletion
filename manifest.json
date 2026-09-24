@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
-    "name": "Bulk Attachment Deleter",
-    "version": "0.1.4",
-    "description": "Delete attachments from selected emails in Thunderbird.",
+    "name": "__MSG_extensionName__",
+    "version": "0.1.5",
+    "description": "__MSG_extensionDescription__",
     "author": "hurokume",
     "icons": {
         "16": "images/icon.svg",
@@ -28,6 +28,7 @@
     "background": {
         "scripts": [
             "bg/globals.js",
+            "shared/i18n.js",
             "bg/utils.js",
             "bg/settings.js",
             "bg/downloads.js",
@@ -40,5 +41,6 @@
     "options_ui": {
         "page": "ui/options.html",
         "open_in_tab": true
-    }
+    },
+    "default_locale": "en"
 }

@@ -1,0 +1,449 @@
+{
+  "extensionName": {
+    "message": "Bulk Attachment Deleter"
+  },
+  "extensionDescription": {
+    "message": "批次刪除 Thunderbird 中所選郵件的附件。"
+  },
+  "locale": {
+    "message": "zh-TW",
+    "description": "BCP 47 tag for this translation, used for document language and Intl formatting."
+  },
+  "direction": {
+    "message": "ltr",
+    "description": "Document writing direction: ltr or rtl."
+  },
+  "menuDelete": {
+    "message": "刪除所選郵件的附件…"
+  },
+  "cancel": {
+    "message": "取消"
+  },
+  "close": {
+    "message": "關閉"
+  },
+  "continueButton": {
+    "message": "繼續"
+  },
+  "deleteButton": {
+    "message": "刪除"
+  },
+  "deleteWithoutBackup": {
+    "message": "不備份直接刪除"
+  },
+  "save": {
+    "message": "儲存"
+  },
+  "resetDefaults": {
+    "message": "還原預設值"
+  },
+  "saved": {
+    "message": "已儲存。"
+  },
+  "completed": {
+    "message": "已完成"
+  },
+  "completedWithErrors": {
+    "message": "部分處理失敗"
+  },
+  "cancelled": {
+    "message": "已取消"
+  },
+  "cancelling": {
+    "message": "正在取消…"
+  },
+  "error": {
+    "message": "錯誤"
+  },
+  "warning": {
+    "message": "警告"
+  },
+  "loading": {
+    "message": "載入中…"
+  },
+  "noData": {
+    "message": "沒有資料"
+  },
+  "noMessagesWithAttachments": {
+    "message": "沒有包含附件的郵件"
+  },
+  "noSubject": {
+    "message": "（無主旨）"
+  },
+  "noName": {
+    "message": "（無名稱）"
+  },
+  "unknownType": {
+    "message": "未知"
+  },
+  "javascriptRequired": {
+    "message": "此頁面需要 JavaScript。請檢查瀏覽器設定。"
+  },
+  "confirmPageTitle": {
+    "message": "Bulk Attachment Deleter — 刪除前確認"
+  },
+  "confirmTitle": {
+    "message": "刪除前確認"
+  },
+  "confirmSubtitle": {
+    "message": "刪除所選郵件的附件之前，請檢查目標與明細。"
+  },
+  "affectedMessages": {
+    "message": "含附件的郵件數"
+  },
+  "totalAttachments": {
+    "message": "附件總數"
+  },
+  "totalSize": {
+    "message": "總大小"
+  },
+  "byExtension": {
+    "message": "依副檔名 / 大小"
+  },
+  "messagesToProcess": {
+    "message": "待處理郵件"
+  },
+  "extension": {
+    "message": "副檔名"
+  },
+  "count": {
+    "message": "數量"
+  },
+  "total": {
+    "message": "合計"
+  },
+  "subject": {
+    "message": "主旨"
+  },
+  "from": {
+    "message": "寄件者"
+  },
+  "received": {
+    "message": "接收時間"
+  },
+  "attachments": {
+    "message": "附件數"
+  },
+  "namesSizes": {
+    "message": "名稱 / 大小"
+  },
+  "manyMessages": {
+    "message": "已選取 $COUNT$ 封郵件。處理可能需要一些時間。",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "101"
+      }
+    }
+  },
+  "backupLocation": {
+    "message": "刪除前將備份附件。子資料夾：$PATH$",
+    "placeholders": {
+      "path": {
+        "content": "$1",
+        "example": "MyBackups/Attachments"
+      }
+    }
+  },
+  "backupDisabledConfirmation": {
+    "message": "備份已停用。附件將被永久刪除，且不建立備份。"
+  },
+  "missingKey": {
+    "message": "缺少識別碼。此頁面可能不是由附加元件開啟的。"
+  },
+  "storageUnavailable": {
+    "message": "無法使用儲存空間。請重新載入附加元件後再試。"
+  },
+  "previewNotFound": {
+    "message": "找不到預覽資料。請重新執行。"
+  },
+  "loadFailed": {
+    "message": "無法載入資料。"
+  },
+  "preflightPageTitle": {
+    "message": "Bulk Attachment Deleter — 大量選取確認"
+  },
+  "preflightTitle": {
+    "message": "評估前確認"
+  },
+  "preflightSubtitle": {
+    "message": "掃描郵件之前，請確認是否繼續。"
+  },
+  "selectedMessages": {
+    "message": "已選取郵件：$COUNT$ 封",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "101"
+      }
+    }
+  },
+  "preflightHint": {
+    "message": "選取超過 100 封郵件時，掃描與備份可能需要一些時間。"
+  },
+  "preflightInstructions": {
+    "message": "尚未掃描或修改任何郵件。選擇「繼續」以掃描郵件並檢視附件清單。"
+  },
+  "operationInactive": {
+    "message": "操作已結束。請關閉此視窗並重試。"
+  },
+  "progressPageTitle": {
+    "message": "Bulk Attachment Deleter — 進度"
+  },
+  "progressTitle": {
+    "message": "進度"
+  },
+  "scanning": {
+    "message": "正在讀取郵件"
+  },
+  "processing": {
+    "message": "正在處理附件"
+  },
+  "progressScanCount": {
+    "message": "正在讀取郵件：$CURRENT$ / $TOTAL$ 封",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "101"
+      },
+      "total": {
+        "content": "$2",
+        "example": "101"
+      }
+    }
+  },
+  "progressAttachmentCount": {
+    "message": "正在處理附件：$CURRENT$ / $TOTAL$ 個",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "101"
+      },
+      "total": {
+        "content": "$2",
+        "example": "101"
+      }
+    }
+  },
+  "progressSummary": {
+    "message": "已儲存：$SAVED$ · 已刪除：$DELETED$ · 失敗：$FAILED$ · 未處理：$PENDING$",
+    "placeholders": {
+      "saved": {
+        "content": "$1",
+        "example": "101"
+      },
+      "deleted": {
+        "content": "$2",
+        "example": "101"
+      },
+      "failed": {
+        "content": "$3",
+        "example": "101"
+      },
+      "pending": {
+        "content": "$4",
+        "example": "101"
+      }
+    }
+  },
+  "progressBarLabel": {
+    "message": "附件處理進度"
+  },
+  "resultsAndPaths": {
+    "message": "處理結果與備份路徑"
+  },
+  "backupDisabled": {
+    "message": "備份已停用。"
+  },
+  "communicationFailed": {
+    "message": "操作沒有回應。請關閉此視窗並重試。"
+  },
+  "stageBackup": {
+    "message": "備份"
+  },
+  "stageDelete": {
+    "message": "刪除"
+  },
+  "issueDetail": {
+    "message": "$STAGE$ · 郵件 $MESSAGE$ / $PART$：$ERROR$",
+    "placeholders": {
+      "stage": {
+        "content": "$1",
+        "example": "Backup"
+      },
+      "message": {
+        "content": "$2",
+        "example": "101"
+      },
+      "part": {
+        "content": "$3",
+        "example": "1.2"
+      },
+      "error": {
+        "content": "$4",
+        "example": "Backup could not be verified."
+      }
+    }
+  },
+  "backupPathDetail": {
+    "message": "郵件 $MESSAGE$ / $PART$：$PATH$",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "101"
+      },
+      "part": {
+        "content": "$2",
+        "example": "1.2"
+      },
+      "path": {
+        "content": "$3",
+        "example": "MyBackups/Attachments"
+      }
+    }
+  },
+  "settingsPageTitle": {
+    "message": "Bulk Attachment Deleter — 設定"
+  },
+  "settingsTitle": {
+    "message": "設定"
+  },
+  "settingsSubtitle": {
+    "message": "設定刪除附件前的備份方式。"
+  },
+  "settingsDir": {
+    "message": "備份子資料夾"
+  },
+  "settingsHint": {
+    "message": "相對於 Thunderbird 設定的下載資料夾。例如：MyBackups/Attachments"
+  },
+  "settingsBackup": {
+    "message": "刪除前備份附件（建議）"
+  },
+  "settingsMode": {
+    "message": "儲存位置"
+  },
+  "settingsInherit": {
+    "message": "遵循 Thunderbird 設定"
+  },
+  "settingsAsk": {
+    "message": "每個檔案都詢問"
+  },
+  "settingsAutomatic": {
+    "message": "自動儲存"
+  },
+  "settingsFileDelay": {
+    "message": "檔案間隔（毫秒）"
+  },
+  "settingsMessageDelay": {
+    "message": "郵件間隔（毫秒）"
+  },
+  "settingsSaveFailed": {
+    "message": "無法儲存設定。"
+  },
+  "settingsLoadFailed": {
+    "message": "無法載入設定。"
+  },
+  "settingsBackupWarning": {
+    "message": "備份已停用。無法透過此附加元件還原已刪除的附件。"
+  },
+  "settingsPreview": {
+    "message": "子資料夾：$PATH$",
+    "placeholders": {
+      "path": {
+        "content": "$1",
+        "example": "MyBackups/Attachments"
+      }
+    }
+  },
+  "invalidSubfolder": {
+    "message": "請使用不含磁碟機代號或「..」的相對子資料夾路徑。"
+  },
+  "subfolderTooLong": {
+    "message": "儲存子資料夾路徑過長（最多 $LIMIT$ 位元組）。",
+    "placeholders": {
+      "limit": {
+        "content": "$1",
+        "example": "120"
+      }
+    }
+  },
+  "alreadyRunning": {
+    "message": "正在執行"
+  },
+  "alreadyRunningMessage": {
+    "message": "請等待目前的操作完成或將其取消。"
+  },
+  "deletionUnavailable": {
+    "message": "無法刪除附件。需要 Thunderbird 128 或更新版本及 messagesModifyPermanent 權限。"
+  },
+  "noSelection": {
+    "message": "未選取郵件"
+  },
+  "selectMessages": {
+    "message": "請選取要處理的郵件。"
+  },
+  "noDeletableAttachments": {
+    "message": "沒有可刪除的附件"
+  },
+  "noDeletableMessage": {
+    "message": "所選郵件中找不到可刪除的附件。"
+  },
+  "cancelledMessage": {
+    "message": "操作已取消。已完成的變更將保留。"
+  },
+  "operationFailed": {
+    "message": "附件處理失敗"
+  },
+  "progressNotReady": {
+    "message": "進度視窗未能準備就緒。未刪除任何附件。"
+  },
+  "progressDisconnected": {
+    "message": "進度視窗連線已中斷。"
+  },
+  "backupNotVerified": {
+    "message": "無法驗證備份。"
+  },
+  "downloadTimedOut": {
+    "message": "備份下載逾時。"
+  },
+  "downloadInterrupted": {
+    "message": "備份下載已中斷。"
+  },
+  "downloadCancelled": {
+    "message": "已取消儲存備份。"
+  },
+  "backupFileMissing": {
+    "message": "下載後找不到備份檔案。"
+  },
+  "attachmentChanged": {
+    "message": "附件已變更或無法再使用。"
+  },
+  "errorWithDetails": {
+    "message": "$SUMMARY$ 詳細資訊：$DETAILS$",
+    "description": "Keep the diagnostic DETAILS verbatim; translate only surrounding text.",
+    "placeholders": {
+      "summary": {
+        "content": "$1",
+        "example": "Could not save settings."
+      },
+      "details": {
+        "content": "$2",
+        "example": "FILE_ACCESS_DENIED"
+      }
+    }
+  },
+  "fileSize": {
+    "message": "$VALUE$ $UNIT$",
+    "placeholders": {
+      "value": {
+        "content": "$1",
+        "example": "101"
+      },
+      "unit": {
+        "content": "$2",
+        "example": "KB"
+      }
+    }
+  }
+}

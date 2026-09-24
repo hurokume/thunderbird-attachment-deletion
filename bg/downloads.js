@@ -1,111 +1,102 @@
-// bg/downloads.js（堅牢化版：タイムアウト付・確実なクリーンアップ・厳格検証・リトライ）
 (function (BD) {
     'use strict';
-
     const api = BD.api;
+    const { t, details } = globalThis.BDI18n;
     const { MAX_DOWNLOAD_RETRIES, RETRY_BACKOFF_MS } = BD.const;
-    const { sleep, addSuffixToPath } = BD.utils;
+    const { sleep, addSuffixToPath, throwIfAborted, withAbort } = BD.utils;
 
-    /**
-     * ダウンロード完了/中断を待つ（タイムアウト付）
-     * @param {number} id downloads.download が返すID
-     * @param {number} timeoutMs タイムアウト（既定120秒）
-     * @returns {Promise<"complete"|"interrupted"|"timeout">}
-     */
-    function waitForDownloadState(id, timeoutMs = 120000) {
-        return new Promise((resolve) => {
+    function waitForDownloadState(id, timeoutMs = 120000, signal) {
+        throwIfAborted(signal);
+        return new Promise((resolve, reject) => {
             let done = false;
-            const cleanup = () => {
+            const finish = (state, error) => {
                 if (done) return;
                 done = true;
-                try { api.downloads.onChanged.removeListener(onChanged); } catch { }
                 clearTimeout(timer);
+                api.downloads.onChanged.removeListener(onChanged);
+                signal?.removeEventListener('abort', abort);
+                if (error) reject(error); else resolve(state);
             };
-
-            const onChanged = (delta) => {
-                if (delta.id !== id || !delta.state) return;
-                const cur = delta.state.current;
-                if (cur === 'complete') { cleanup(); resolve('complete'); }
-                else if (cur === 'interrupted') { cleanup(); resolve('interrupted'); }
+            const abort = () => finish(null, new DOMException('Cancelled', 'AbortError'));
+            const onChanged = delta => {
+                if (delta.id === id && ['complete', 'interrupted'].includes(delta.state?.current)) {
+                    finish(delta.state.current);
+                }
             };
-
-            const timer = setTimeout(() => { cleanup(); resolve('timeout'); }, timeoutMs);
-
-            try { api.downloads.onChanged.addListener(onChanged); }
-            catch {
-                // 古い環境等で onChanged が使えない場合はタイムアウトで抜ける
-            }
+            const timer = setTimeout(() => finish('timeout'), timeoutMs);
+            signal?.addEventListener('abort', abort, { once: true });
+            // Subscribe before the snapshot: completion cannot fall between them.
+            try {
+                api.downloads.onChanged.addListener(onChanged);
+                api.downloads.search({ id }).then(([item]) => {
+                    if (['complete', 'interrupted'].includes(item?.state)) finish(item.state);
+                }, error => finish(null, error));
+            } catch (error) { finish(null, error); }
         });
     }
 
-    /**
-     * 完了＋存在確認（厳格）
-     * downloads.search は反映が遅れることがあるので、少し待ちながら複数回確認
-     */
-    async function verifyExistsStrictById(id) {
+    async function verifyExistsStrictById(id, signal) {
         for (let i = 0; i < 5; i++) {
-            try {
-                const list = await api.downloads.search({ id });
-                const rec = list && list[0];
-                if (rec && rec.state === 'complete' && rec.exists === true) return true;
-            } catch (e) {
-                // 一時的な失敗はリトライ
-            }
-            await sleep(200);
+            throwIfAborted(signal);
+            const [record] = await withAbort(api.downloads.search({ id }), signal);
+            if (record?.state === 'complete' && record.exists === true) return record;
+            if (record?.state === 'interrupted') return null;
+            if (i < 4) await sleep(200, signal);
         }
-        return false;
+        return null;
     }
 
-    /**
-     * Blob→downloads API 経由で保存し、存在確認まで行う
-     * 失敗時は指数的バックオフでリトライ（ファイル名に _retryN を付与）
-     * @param {Blob|File} fileOrBlob
-     * @param {string} filename 保存先（サブフォルダ含むパス）
-     * @returns {Promise<{ok:true, finalPath:string, id:number} | {ok:false}>}
-     */
-    async function downloadViaBlobAndVerify(fileOrBlob, filename) {
+    async function cancelDownload(id) {
+        if (id != null) await api.downloads.cancel(id).catch(() => {});
+    }
+
+    async function downloadViaBlobAndVerify(fileOrBlob, filename, options = {}) {
+        const { signal, saveMode = 'inherit', timeoutMs = 120000 } = options;
+        let lastError = t('backupNotVerified');
         for (let attempt = 1; attempt <= MAX_DOWNLOAD_RETRIES; attempt++) {
+            throwIfAborted(signal);
             const url = URL.createObjectURL(fileOrBlob);
+            let id;
             try {
-                const attemptName = (attempt === 1) ? filename : addSuffixToPath(filename, `_retry${attempt}`);
-                const id = await api.downloads.download({
+                const request = {
                     url,
-                    filename: attemptName,
-                    conflictAction: 'uniquify',
-                    saveAs: false
-                });
-
-                // すでに complete のこともあるので軽くチェック
-                try {
-                    const [rec0] = await api.downloads.search({ id });
-                    if (!rec0 || rec0.state !== 'complete') {
-                        await waitForDownloadState(id).catch(() => { });
-                    }
-                } catch {
-                    // search 失敗は後段 verifyExists で最終判断
+                    filename: attempt === 1 ? filename : addSuffixToPath(filename, '_retry' + attempt),
+                    conflictAction: 'uniquify'
+                };
+                if (saveMode !== 'inherit') request.saveAs = saveMode === 'ask';
+                const started = api.downloads.download(request);
+                // A file picker may return an ID after the run was cancelled.
+                started.then(lateId => {
+                    if (signal?.aborted) return cancelDownload(lateId);
+                }).catch(() => {});
+                id = await withAbort(started, signal);
+                const state = await waitForDownloadState(id, timeoutMs, signal);
+                if (state === 'timeout') {
+                    await cancelDownload(id);
+                    lastError = t('downloadTimedOut');
+                } else if (state === 'interrupted') {
+                    const [record] = await withAbort(api.downloads.search({ id }), signal);
+                    lastError = details(t('downloadInterrupted'), record?.error);
+                    if (record?.error === 'USER_CANCELED') return { ok: false, error: t('downloadCancelled') };
+                } else {
+                    const record = await verifyExistsStrictById(id, signal);
+                    throwIfAborted(signal);
+                    if (record) return { ok: true, finalPath: record.filename || request.filename, id };
+                    lastError = t('backupFileMissing');
                 }
-
-                const ok = await verifyExistsStrictById(id);
-                if (ok) {
-                    const [rec] = await api.downloads.search({ id }).catch(() => [null]);
-                    return { ok: true, finalPath: (rec && rec.filename) || attemptName, id };
-                }
-            } catch (e) {
-                console.warn('download attempt failed:', e?.message || e);
+            } catch (error) {
+                await cancelDownload(id);
+                if (error.name === 'AbortError') throw error;
+                lastError = details(t('downloadInterrupted'), error);
+                // Closing a native Save As dialog must not reopen it repeatedly.
+                if (/cancel/i.test(error.message || String(error))) return { ok: false, error: t('downloadCancelled') };
             } finally {
                 URL.revokeObjectURL(url);
             }
-
-            if (attempt < MAX_DOWNLOAD_RETRIES) {
-                await BD.utils.sleep(RETRY_BACKOFF_MS * attempt); // 逓増バックオフ
-            }
+            if (attempt < MAX_DOWNLOAD_RETRIES) await sleep(RETRY_BACKOFF_MS * attempt, signal);
         }
-        return { ok: false };
+        return { ok: false, error: lastError };
     }
 
-    BD.downloads = {
-        waitForDownloadState,
-        verifyExistsStrictById,
-        downloadViaBlobAndVerify,
-    };
+    BD.downloads = { waitForDownloadState, verifyExistsStrictById, downloadViaBlobAndVerify };
 })(globalThis.BD);

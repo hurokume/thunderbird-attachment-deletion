@@ -1,0 +1,449 @@
+{
+  "extensionName": {
+    "message": "Bulk Attachment Deleter"
+  },
+  "extensionDescription": {
+    "message": "Thunderbirdで選択したメールの添付ファイルを一括削除します。"
+  },
+  "locale": {
+    "message": "ja",
+    "description": "BCP 47 tag for this translation, used for document language and Intl formatting."
+  },
+  "direction": {
+    "message": "ltr",
+    "description": "Document writing direction: ltr or rtl."
+  },
+  "menuDelete": {
+    "message": "選択したメールの添付ファイルを削除…"
+  },
+  "cancel": {
+    "message": "キャンセル"
+  },
+  "close": {
+    "message": "閉じる"
+  },
+  "continueButton": {
+    "message": "続行"
+  },
+  "deleteButton": {
+    "message": "削除"
+  },
+  "deleteWithoutBackup": {
+    "message": "バックアップせずに削除"
+  },
+  "save": {
+    "message": "保存"
+  },
+  "resetDefaults": {
+    "message": "既定に戻す"
+  },
+  "saved": {
+    "message": "保存しました。"
+  },
+  "completed": {
+    "message": "完了"
+  },
+  "completedWithErrors": {
+    "message": "一部の処理に失敗しました"
+  },
+  "cancelled": {
+    "message": "キャンセルしました"
+  },
+  "cancelling": {
+    "message": "キャンセル中…"
+  },
+  "error": {
+    "message": "エラー"
+  },
+  "warning": {
+    "message": "警告"
+  },
+  "loading": {
+    "message": "読み込み中…"
+  },
+  "noData": {
+    "message": "データがありません"
+  },
+  "noMessagesWithAttachments": {
+    "message": "添付ファイルのあるメッセージはありません"
+  },
+  "noSubject": {
+    "message": "（件名なし）"
+  },
+  "noName": {
+    "message": "（名前なし）"
+  },
+  "unknownType": {
+    "message": "不明"
+  },
+  "javascriptRequired": {
+    "message": "このページにはJavaScriptが必要です。ブラウザーの設定を確認してください。"
+  },
+  "confirmPageTitle": {
+    "message": "Bulk Attachment Deleter — 削除前の確認"
+  },
+  "confirmTitle": {
+    "message": "削除前の確認"
+  },
+  "confirmSubtitle": {
+    "message": "選択したメールから添付ファイルを削除する前に、対象と内訳を確認してください。"
+  },
+  "affectedMessages": {
+    "message": "添付ファイルのあるメール数"
+  },
+  "totalAttachments": {
+    "message": "添付ファイルの総数"
+  },
+  "totalSize": {
+    "message": "合計サイズ"
+  },
+  "byExtension": {
+    "message": "拡張子・サイズ別"
+  },
+  "messagesToProcess": {
+    "message": "処理対象メール"
+  },
+  "extension": {
+    "message": "拡張子"
+  },
+  "count": {
+    "message": "件数"
+  },
+  "total": {
+    "message": "合計"
+  },
+  "subject": {
+    "message": "件名"
+  },
+  "from": {
+    "message": "差出人"
+  },
+  "received": {
+    "message": "受信日時"
+  },
+  "attachments": {
+    "message": "添付数"
+  },
+  "namesSizes": {
+    "message": "名称・サイズ"
+  },
+  "manyMessages": {
+    "message": "$COUNT$件のメールが選択されています。処理に時間がかかる場合があります。",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "101"
+      }
+    }
+  },
+  "backupLocation": {
+    "message": "削除前に添付をバックアップします。サブフォルダー: $PATH$",
+    "placeholders": {
+      "path": {
+        "content": "$1",
+        "example": "MyBackups/Attachments"
+      }
+    }
+  },
+  "backupDisabledConfirmation": {
+    "message": "バックアップは無効です。添付ファイルはバックアップせずに完全に削除されます。"
+  },
+  "missingKey": {
+    "message": "識別キーがありません。このページはアドオンから開かれていない可能性があります。"
+  },
+  "storageUnavailable": {
+    "message": "設定の保存領域を利用できません。アドオンを再読み込みして再実行してください。"
+  },
+  "previewNotFound": {
+    "message": "プレビュー用のデータが見つかりません。もう一度実行してください。"
+  },
+  "loadFailed": {
+    "message": "データを読み込めませんでした。"
+  },
+  "preflightPageTitle": {
+    "message": "Bulk Attachment Deleter — 大量選択の確認"
+  },
+  "preflightTitle": {
+    "message": "事前確認"
+  },
+  "preflightSubtitle": {
+    "message": "メールの確認を始める前に、続行するか確認してください。"
+  },
+  "selectedMessages": {
+    "message": "選択したメール: $COUNT$件",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "101"
+      }
+    }
+  },
+  "preflightHint": {
+    "message": "100件を超えるメールを選択すると、確認とバックアップに時間がかかる場合があります。"
+  },
+  "preflightInstructions": {
+    "message": "まだメールの確認や変更は行っていません。「続行」を選ぶと、メールを確認して添付ファイルの一覧を表示します。"
+  },
+  "operationInactive": {
+    "message": "処理は終了しています。この画面を閉じて再実行してください。"
+  },
+  "progressPageTitle": {
+    "message": "Bulk Attachment Deleter — 進捗"
+  },
+  "progressTitle": {
+    "message": "進捗"
+  },
+  "scanning": {
+    "message": "メールを確認中"
+  },
+  "processing": {
+    "message": "添付ファイルを処理中"
+  },
+  "progressScanCount": {
+    "message": "メールを確認中: $CURRENT$ / $TOTAL$件",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "101"
+      },
+      "total": {
+        "content": "$2",
+        "example": "101"
+      }
+    }
+  },
+  "progressAttachmentCount": {
+    "message": "添付ファイルを処理中: $CURRENT$ / $TOTAL$件",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "101"
+      },
+      "total": {
+        "content": "$2",
+        "example": "101"
+      }
+    }
+  },
+  "progressSummary": {
+    "message": "保存: $SAVED$件 · 削除: $DELETED$件 · 失敗: $FAILED$件 · 未処理: $PENDING$件",
+    "placeholders": {
+      "saved": {
+        "content": "$1",
+        "example": "101"
+      },
+      "deleted": {
+        "content": "$2",
+        "example": "101"
+      },
+      "failed": {
+        "content": "$3",
+        "example": "101"
+      },
+      "pending": {
+        "content": "$4",
+        "example": "101"
+      }
+    }
+  },
+  "progressBarLabel": {
+    "message": "添付ファイル処理の進捗"
+  },
+  "resultsAndPaths": {
+    "message": "処理結果とバックアップ保存先"
+  },
+  "backupDisabled": {
+    "message": "バックアップは無効です。"
+  },
+  "communicationFailed": {
+    "message": "処理から応答がありません。この画面を閉じて再実行してください。"
+  },
+  "stageBackup": {
+    "message": "バックアップ"
+  },
+  "stageDelete": {
+    "message": "削除"
+  },
+  "issueDetail": {
+    "message": "$STAGE$ · メール $MESSAGE$ / $PART$: $ERROR$",
+    "placeholders": {
+      "stage": {
+        "content": "$1",
+        "example": "Backup"
+      },
+      "message": {
+        "content": "$2",
+        "example": "101"
+      },
+      "part": {
+        "content": "$3",
+        "example": "1.2"
+      },
+      "error": {
+        "content": "$4",
+        "example": "Backup could not be verified."
+      }
+    }
+  },
+  "backupPathDetail": {
+    "message": "メール $MESSAGE$ / $PART$: $PATH$",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "101"
+      },
+      "part": {
+        "content": "$2",
+        "example": "1.2"
+      },
+      "path": {
+        "content": "$3",
+        "example": "MyBackups/Attachments"
+      }
+    }
+  },
+  "settingsPageTitle": {
+    "message": "Bulk Attachment Deleter — 設定"
+  },
+  "settingsTitle": {
+    "message": "設定"
+  },
+  "settingsSubtitle": {
+    "message": "添付ファイルの削除前に行うバックアップを設定します。"
+  },
+  "settingsDir": {
+    "message": "バックアップのサブフォルダー"
+  },
+  "settingsHint": {
+    "message": "Thunderbirdで設定したダウンロード先からの相対パスです。例: MyBackups/Attachments"
+  },
+  "settingsBackup": {
+    "message": "削除前に添付ファイルをバックアップする（推奨）"
+  },
+  "settingsMode": {
+    "message": "保存先の確認"
+  },
+  "settingsInherit": {
+    "message": "Thunderbirdの設定に従う"
+  },
+  "settingsAsk": {
+    "message": "ファイルごとに確認する"
+  },
+  "settingsAutomatic": {
+    "message": "自動で保存する"
+  },
+  "settingsFileDelay": {
+    "message": "ファイル間の待機時間（ミリ秒）"
+  },
+  "settingsMessageDelay": {
+    "message": "メール間の待機時間（ミリ秒）"
+  },
+  "settingsSaveFailed": {
+    "message": "設定を保存できませんでした。"
+  },
+  "settingsLoadFailed": {
+    "message": "設定を読み込めませんでした。"
+  },
+  "settingsBackupWarning": {
+    "message": "バックアップは無効です。このアドオンから削除した添付ファイルを復元できません。"
+  },
+  "settingsPreview": {
+    "message": "サブフォルダー: $PATH$",
+    "placeholders": {
+      "path": {
+        "content": "$1",
+        "example": "MyBackups/Attachments"
+      }
+    }
+  },
+  "invalidSubfolder": {
+    "message": "ドライブ文字や「..」を含まない相対パスでサブフォルダーを指定してください。"
+  },
+  "subfolderTooLong": {
+    "message": "保存先のサブフォルダー名が長すぎます（最大$LIMIT$バイト）。",
+    "placeholders": {
+      "limit": {
+        "content": "$1",
+        "example": "120"
+      }
+    }
+  },
+  "alreadyRunning": {
+    "message": "処理を実行中です"
+  },
+  "alreadyRunningMessage": {
+    "message": "現在の処理が終わるまで待つか、キャンセルしてください。"
+  },
+  "deletionUnavailable": {
+    "message": "添付ファイルを削除できません。Thunderbird 128以降とmessagesModifyPermanent権限が必要です。"
+  },
+  "noSelection": {
+    "message": "メールが選択されていません"
+  },
+  "selectMessages": {
+    "message": "処理するメールを選択してください。"
+  },
+  "noDeletableAttachments": {
+    "message": "削除できる添付ファイルがありません"
+  },
+  "noDeletableMessage": {
+    "message": "選択したメールに削除できる添付ファイルは見つかりませんでした。"
+  },
+  "cancelledMessage": {
+    "message": "処理をキャンセルしました。既に完了した変更はそのまま残ります。"
+  },
+  "operationFailed": {
+    "message": "添付ファイルの処理に失敗しました"
+  },
+  "progressNotReady": {
+    "message": "進捗画面を準備できませんでした。添付ファイルは削除していません。"
+  },
+  "progressDisconnected": {
+    "message": "進捗画面との接続が切れました。"
+  },
+  "backupNotVerified": {
+    "message": "バックアップを確認できませんでした。"
+  },
+  "downloadTimedOut": {
+    "message": "バックアップの保存がタイムアウトしました。"
+  },
+  "downloadInterrupted": {
+    "message": "バックアップの保存が中断されました。"
+  },
+  "downloadCancelled": {
+    "message": "バックアップの保存をキャンセルしました。"
+  },
+  "backupFileMissing": {
+    "message": "保存後のバックアップファイルが見つかりませんでした。"
+  },
+  "attachmentChanged": {
+    "message": "添付ファイルが変更されたか、利用できなくなりました。"
+  },
+  "errorWithDetails": {
+    "message": "$SUMMARY$ 詳細: $DETAILS$",
+    "description": "Keep the diagnostic DETAILS verbatim; translate only surrounding text.",
+    "placeholders": {
+      "summary": {
+        "content": "$1",
+        "example": "Could not save settings."
+      },
+      "details": {
+        "content": "$2",
+        "example": "FILE_ACCESS_DENIED"
+      }
+    }
+  },
+  "fileSize": {
+    "message": "$VALUE$ $UNIT$",
+    "placeholders": {
+      "value": {
+        "content": "$1",
+        "example": "101"
+      },
+      "unit": {
+        "content": "$2",
+        "example": "KB"
+      }
+    }
+  }
+}

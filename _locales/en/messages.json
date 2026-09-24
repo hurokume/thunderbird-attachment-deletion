@@ -1,0 +1,449 @@
+{
+  "extensionName": {
+    "message": "Bulk Attachment Deleter"
+  },
+  "extensionDescription": {
+    "message": "Delete attachments from selected emails in Thunderbird."
+  },
+  "locale": {
+    "message": "en",
+    "description": "BCP 47 tag for this translation, used for document language and Intl formatting."
+  },
+  "direction": {
+    "message": "ltr",
+    "description": "Document writing direction: ltr or rtl."
+  },
+  "menuDelete": {
+    "message": "Delete attachments from selection…"
+  },
+  "cancel": {
+    "message": "Cancel"
+  },
+  "close": {
+    "message": "Close"
+  },
+  "continueButton": {
+    "message": "Continue"
+  },
+  "deleteButton": {
+    "message": "Delete"
+  },
+  "deleteWithoutBackup": {
+    "message": "Delete without backup"
+  },
+  "save": {
+    "message": "Save"
+  },
+  "resetDefaults": {
+    "message": "Reset to defaults"
+  },
+  "saved": {
+    "message": "Saved."
+  },
+  "completed": {
+    "message": "Completed"
+  },
+  "completedWithErrors": {
+    "message": "Completed with errors"
+  },
+  "cancelled": {
+    "message": "Cancelled"
+  },
+  "cancelling": {
+    "message": "Cancelling…"
+  },
+  "error": {
+    "message": "Error"
+  },
+  "warning": {
+    "message": "Warning"
+  },
+  "loading": {
+    "message": "Loading…"
+  },
+  "noData": {
+    "message": "No data"
+  },
+  "noMessagesWithAttachments": {
+    "message": "No messages with attachments"
+  },
+  "noSubject": {
+    "message": "(no subject)"
+  },
+  "noName": {
+    "message": "(no name)"
+  },
+  "unknownType": {
+    "message": "Unknown"
+  },
+  "javascriptRequired": {
+    "message": "This page requires JavaScript. Please check your browser settings."
+  },
+  "confirmPageTitle": {
+    "message": "Bulk Attachment Deleter — Review"
+  },
+  "confirmTitle": {
+    "message": "Review before deleting"
+  },
+  "confirmSubtitle": {
+    "message": "Check the targets and breakdown before removing attachments from the selected messages."
+  },
+  "affectedMessages": {
+    "message": "Messages with attachments"
+  },
+  "totalAttachments": {
+    "message": "Total attachments"
+  },
+  "totalSize": {
+    "message": "Total size"
+  },
+  "byExtension": {
+    "message": "By extension / size"
+  },
+  "messagesToProcess": {
+    "message": "Messages to process"
+  },
+  "extension": {
+    "message": "Extension"
+  },
+  "count": {
+    "message": "Count"
+  },
+  "total": {
+    "message": "Total"
+  },
+  "subject": {
+    "message": "Subject"
+  },
+  "from": {
+    "message": "From"
+  },
+  "received": {
+    "message": "Received"
+  },
+  "attachments": {
+    "message": "Attachments"
+  },
+  "namesSizes": {
+    "message": "Names / Sizes"
+  },
+  "manyMessages": {
+    "message": "You selected $COUNT$ messages. This may take a while to process.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "101"
+      }
+    }
+  },
+  "backupLocation": {
+    "message": "Attachments will be backed up before deletion. Subfolder: $PATH$",
+    "placeholders": {
+      "path": {
+        "content": "$1",
+        "example": "MyBackups/Attachments"
+      }
+    }
+  },
+  "backupDisabledConfirmation": {
+    "message": "Backup is disabled. Attachments will be permanently deleted without a backup."
+  },
+  "missingKey": {
+    "message": "Missing key. This page may not have been opened by the extension."
+  },
+  "storageUnavailable": {
+    "message": "Storage is unavailable. Reload the add-on and try again."
+  },
+  "previewNotFound": {
+    "message": "Preview data not found. Please run again."
+  },
+  "loadFailed": {
+    "message": "Failed to load data."
+  },
+  "preflightPageTitle": {
+    "message": "Bulk Attachment Deleter — Large Selection"
+  },
+  "preflightTitle": {
+    "message": "Confirm before evaluation"
+  },
+  "preflightSubtitle": {
+    "message": "Before scanning the messages, please confirm you want to continue."
+  },
+  "selectedMessages": {
+    "message": "Selected messages: $COUNT$",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "101"
+      }
+    }
+  },
+  "preflightHint": {
+    "message": "If you have selected more than 100 messages, scanning and backup may take a while."
+  },
+  "preflightInstructions": {
+    "message": "No messages have been scanned or modified yet. Choose Continue to scan the messages and review the attachments."
+  },
+  "operationInactive": {
+    "message": "The operation is no longer active. Close this window and try again."
+  },
+  "progressPageTitle": {
+    "message": "Bulk Attachment Deleter — Progress"
+  },
+  "progressTitle": {
+    "message": "Progress"
+  },
+  "scanning": {
+    "message": "Reading messages"
+  },
+  "processing": {
+    "message": "Processing attachments"
+  },
+  "progressScanCount": {
+    "message": "Reading messages: $CURRENT$ / $TOTAL$",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "101"
+      },
+      "total": {
+        "content": "$2",
+        "example": "101"
+      }
+    }
+  },
+  "progressAttachmentCount": {
+    "message": "Processing attachments: $CURRENT$ / $TOTAL$",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "101"
+      },
+      "total": {
+        "content": "$2",
+        "example": "101"
+      }
+    }
+  },
+  "progressSummary": {
+    "message": "Saved: $SAVED$ · Deleted: $DELETED$ · Failed: $FAILED$ · Unprocessed: $PENDING$",
+    "placeholders": {
+      "saved": {
+        "content": "$1",
+        "example": "101"
+      },
+      "deleted": {
+        "content": "$2",
+        "example": "101"
+      },
+      "failed": {
+        "content": "$3",
+        "example": "101"
+      },
+      "pending": {
+        "content": "$4",
+        "example": "101"
+      }
+    }
+  },
+  "progressBarLabel": {
+    "message": "Attachment operation progress"
+  },
+  "resultsAndPaths": {
+    "message": "Results and backup paths"
+  },
+  "backupDisabled": {
+    "message": "Backup is disabled."
+  },
+  "communicationFailed": {
+    "message": "The operation is no longer responding. Close this window and try again."
+  },
+  "stageBackup": {
+    "message": "Backup"
+  },
+  "stageDelete": {
+    "message": "Deletion"
+  },
+  "issueDetail": {
+    "message": "$STAGE$ · Message $MESSAGE$ / $PART$: $ERROR$",
+    "placeholders": {
+      "stage": {
+        "content": "$1",
+        "example": "Backup"
+      },
+      "message": {
+        "content": "$2",
+        "example": "101"
+      },
+      "part": {
+        "content": "$3",
+        "example": "1.2"
+      },
+      "error": {
+        "content": "$4",
+        "example": "Backup could not be verified."
+      }
+    }
+  },
+  "backupPathDetail": {
+    "message": "Message $MESSAGE$ / $PART$: $PATH$",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "101"
+      },
+      "part": {
+        "content": "$2",
+        "example": "1.2"
+      },
+      "path": {
+        "content": "$3",
+        "example": "MyBackups/Attachments"
+      }
+    }
+  },
+  "settingsPageTitle": {
+    "message": "Bulk Attachment Deleter — Settings"
+  },
+  "settingsTitle": {
+    "message": "Settings"
+  },
+  "settingsSubtitle": {
+    "message": "Choose how attachments are backed up before deletion."
+  },
+  "settingsDir": {
+    "message": "Backup subfolder"
+  },
+  "settingsHint": {
+    "message": "Relative to Thunderbird’s configured download folder. Example: MyBackups/Attachments"
+  },
+  "settingsBackup": {
+    "message": "Back up attachments before deleting (recommended)"
+  },
+  "settingsMode": {
+    "message": "Save location"
+  },
+  "settingsInherit": {
+    "message": "Use Thunderbird settings"
+  },
+  "settingsAsk": {
+    "message": "Ask for every file"
+  },
+  "settingsAutomatic": {
+    "message": "Save automatically"
+  },
+  "settingsFileDelay": {
+    "message": "Delay between files (milliseconds)"
+  },
+  "settingsMessageDelay": {
+    "message": "Delay between messages (milliseconds)"
+  },
+  "settingsSaveFailed": {
+    "message": "Could not save settings."
+  },
+  "settingsLoadFailed": {
+    "message": "Could not load settings."
+  },
+  "settingsBackupWarning": {
+    "message": "Backup is disabled. Deleted attachments cannot be restored from this add-on."
+  },
+  "settingsPreview": {
+    "message": "Subfolder: $PATH$",
+    "placeholders": {
+      "path": {
+        "content": "$1",
+        "example": "MyBackups/Attachments"
+      }
+    }
+  },
+  "invalidSubfolder": {
+    "message": "Use a relative subfolder, without a drive letter or \"..\"."
+  },
+  "subfolderTooLong": {
+    "message": "Save subfolder is too long (maximum $LIMIT$ bytes).",
+    "placeholders": {
+      "limit": {
+        "content": "$1",
+        "example": "120"
+      }
+    }
+  },
+  "alreadyRunning": {
+    "message": "Already running"
+  },
+  "alreadyRunningMessage": {
+    "message": "Wait for the current operation to finish or cancel it."
+  },
+  "deletionUnavailable": {
+    "message": "Attachment deletion is unavailable. Thunderbird 128 or later and the messagesModifyPermanent permission are required."
+  },
+  "noSelection": {
+    "message": "No messages selected"
+  },
+  "selectMessages": {
+    "message": "Select messages to process."
+  },
+  "noDeletableAttachments": {
+    "message": "No deletable attachments"
+  },
+  "noDeletableMessage": {
+    "message": "No removable attachments were found in the selected messages."
+  },
+  "cancelledMessage": {
+    "message": "The operation was cancelled. Already completed changes are retained."
+  },
+  "operationFailed": {
+    "message": "Attachment operation failed"
+  },
+  "progressNotReady": {
+    "message": "Progress window did not become ready. No attachments were deleted."
+  },
+  "progressDisconnected": {
+    "message": "Progress window disconnected."
+  },
+  "backupNotVerified": {
+    "message": "Backup could not be verified."
+  },
+  "downloadTimedOut": {
+    "message": "Backup download timed out."
+  },
+  "downloadInterrupted": {
+    "message": "Backup download interrupted."
+  },
+  "downloadCancelled": {
+    "message": "Backup saving was cancelled."
+  },
+  "backupFileMissing": {
+    "message": "Backup file was not found after download."
+  },
+  "attachmentChanged": {
+    "message": "Attachment changed or is no longer available."
+  },
+  "errorWithDetails": {
+    "message": "$SUMMARY$ Details: $DETAILS$",
+    "description": "Keep the diagnostic DETAILS verbatim; translate only surrounding text.",
+    "placeholders": {
+      "summary": {
+        "content": "$1",
+        "example": "Could not save settings."
+      },
+      "details": {
+        "content": "$2",
+        "example": "FILE_ACCESS_DENIED"
+      }
+    }
+  },
+  "fileSize": {
+    "message": "$VALUE$ $UNIT$",
+    "placeholders": {
+      "value": {
+        "content": "$1",
+        "example": "101"
+      },
+      "unit": {
+        "content": "$2",
+        "example": "KB"
+      }
+    }
+  }
+}

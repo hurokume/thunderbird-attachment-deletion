@@ -1,113 +1,17 @@
 // ui/confirm.js
-// i18n対応版：ページ文言を言語に合わせて切替（ja/en/zh）。安全なDOM構築（innerHTML不使用）。
+// Safe DOM rendering; all interface text comes from the shared message catalogs.
 (() => {
     'use strict';
 
     const api = (typeof messenger !== 'undefined') ? messenger : browser;
+    const { t, number, size: humanSize, details, apply } = globalThis.BDI18n;
     const qs = (id) => document.getElementById(id);
-    const delay = (ms) => new Promise((r) => setTimeout(r, ms));
-
-    /* ========= i18n ========= */
-    function detectLang() {
-        const lang =
-            (api?.i18n?.getUILanguage?.() || navigator.language || 'en').toLowerCase();
-        if (lang.startsWith('ja')) return 'ja';
-        if (lang.startsWith('zh')) return 'zh';
-        return 'en';
-    }
-    const LANG = detectLang();
-
-    const I18N = {
-        en: {
-            title: 'Review before deleting',
-            subtitle: 'Check the targets and breakdown before removing attachments from the selected messages.',
-            byExt: 'By extension / size',
-            messages: 'Messages to process',
-            ext: 'Extension',
-            count: 'Count',
-            total: 'Total',
-            subject: 'Subject',
-            from: 'From',
-            received: 'Received',
-            attachments: 'Attachments',
-            namesSizes: 'Names / Sizes',
-            cancel: 'Cancel',
-            ok: 'Delete',
-            loading: 'Loading…',
-            noData: 'No data',
-            noMsgs: 'No messages with attachments',
-            warnMany: (n) => `You selected ${n} messages. This may take a while to process.`,
-            Error: 'Error',
-            Warning: 'Warning',
-            MissingKey: 'Missing key. This page may not have been opened by the extension.',
-            StorageNA: 'Storage API is not available. Please add "storage" permission and reload the add-on.',
-            PreviewNotFound: 'Preview data not found. Please run again.',
-            FailedLoad: 'Failed to load data.'
-        },
-        ja: {
-            title: '削除前の確認',
-            subtitle: '選択したメッセージから添付ファイルを削除する前に、対象と内訳を確認してください。',
-            byExt: '拡張子 / サイズ別',
-            messages: '処理対象メッセージ',
-            ext: '拡張子',
-            count: '件数',
-            total: '合計',
-            subject: '件名',
-            from: '差出人',
-            received: '受信日時',
-            attachments: '添付数',
-            namesSizes: '名称 / サイズ',
-            cancel: 'キャンセル',
-            ok: '削除',
-            loading: '読み込み中…',
-            noData: 'データがありません',
-            noMsgs: '添付ファイルのあるメッセージはありません',
-            warnMany: (n) => `${n}件のメッセージが選択されています。処理に時間がかかる場合があります。`,
-            Error: 'エラー',
-            Warning: '警告',
-            MissingKey: 'キーがありません。このページは拡張機能から開かれていない可能性があります。',
-            StorageNA: 'Storage API が利用できません。「storage」権限を付与してアドオンを再読み込みしてください。',
-            PreviewNotFound: 'プレビュー用のデータが見つかりません。もう一度実行してください。',
-            FailedLoad: 'データの読み込みに失敗しました。'
-        },
-        zh: {
-            title: '删除前确认',
-            subtitle: '在从所选邮件删除附件之前，请检查目标与明细。',
-            byExt: '按扩展名 / 大小',
-            messages: '待处理邮件',
-            ext: '扩展名',
-            count: '数量',
-            total: '合计',
-            subject: '主题',
-            from: '发件人',
-            received: '接收时间',
-            attachments: '附件数',
-            namesSizes: '名称 / 大小',
-            cancel: '取消',
-            ok: '删除',
-            loading: '载入中…',
-            noData: '没有数据',
-            noMsgs: '没有包含附件的邮件',
-            warnMany: (n) => `已选择 ${n} 封邮件。处理可能需要一些时间。`,
-            Error: '错误',
-            Warning: '警告',
-            MissingKey: '缺少键。此页面可能不是由扩展打开的。',
-            StorageNA: 'Storage API 不可用。请添加 “storage” 权限并重新加载附加组件。',
-            PreviewNotFound: '未找到预览数据。请重新运行。',
-            FailedLoad: '加载数据失败。'
-        }
-    }[LANG];
+    let previewReady = false;
 
     function setText(el, txt) { if (el) el.textContent = String(txt ?? ''); }
 
     /* ========= Utilities ========= */
 
-    function humanSize(bytes) {
-        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        let b = Math.max(0, Number(bytes || 0)), i = 0;
-        while (b >= 1024 && i < units.length - 1) { b /= 1024; i++; }
-        return `${b.toFixed(i ? 1 : 0)} ${units[i]}`;
-    }
 
     // 足りない場合は footer に動的に作る
     function ensureBanner(id, klass) {
@@ -126,12 +30,12 @@
 
     function showError(text) {
         const el = ensureBanner('error', 'error');
-        el.textContent = String(text || I18N.Error);
+        el.textContent = String(text || t('error'));
         el.hidden = false;
     }
     function showWarn(text) {
         const el = ensureBanner('warn', 'warn');
-        el.textContent = String(text || I18N.Warning);
+        el.textContent = String(text || t('warning'));
         el.hidden = false;
     }
 
@@ -155,8 +59,8 @@
         const affected = params.get('affected') ?? '0';
         const total = params.get('total') ?? '0';
         const bytes = params.get('bytes') ?? 0;
-        setText(qs('affected'), affected);
-        setText(qs('total'), total);
+        setText(qs('affected'), number(affected));
+        setText(qs('total'), number(total));
         setText(qs('bytes'), humanSize(bytes));
         return params.get('key') || '';
     }
@@ -182,7 +86,7 @@
                 const td = document.createElement('td');
                 td.colSpan = 3;
                 td.className = 'muted';
-                td.textContent = I18N.noData;
+                td.textContent = t('noData');
                 tr.appendChild(td);
                 return tr;
             })();
@@ -201,8 +105,8 @@
             if (!tdCount) { tdCount = document.createElement('td'); tdCount.classList.add('num'); tr.appendChild(tdCount); }
             if (!tdBytes) { tdBytes = document.createElement('td'); tdBytes.classList.add('num'); tr.appendChild(tdBytes); }
 
-            tdExt.textContent = String(row.ext ?? '');
-            tdCount.textContent = String(row.count ?? 0);
+            tdExt.textContent = row.ext ? String(row.ext) : t('unknownType');
+            tdCount.textContent = number(row.count ?? 0);
             tdBytes.textContent = humanSize(row.bytes ?? 0);
 
             tbody.appendChild(tr);
@@ -225,7 +129,7 @@
                 const td = document.createElement('td');
                 td.colSpan = 5;
                 td.className = 'muted';
-                td.textContent = I18N.noMsgs;
+                td.textContent = t('noMessagesWithAttachments');
                 tr.appendChild(td);
                 return tr;
             })();
@@ -251,7 +155,7 @@
             tdSubj.textContent = String(m.subject || '');
             tdFrom.textContent = String(m.author || '');
             tdDate.textContent = String(m.date || '');
-            tdCount.textContent = String((m.attachments || []).length);
+            tdCount.textContent = number((m.attachments || []).length);
 
             clearNode(tdNames);
             for (const a of (m.attachments || [])) {
@@ -286,31 +190,37 @@
     async function loadAndRender(key) {
         try {
             if (!key) {
-                showError(I18N.MissingKey);
+                showError(t('missingKey'));
                 disableButtons();
                 return;
             }
             if (!api?.storage?.local?.get) {
-                showError(I18N.StorageNA);
+                showError(t('storageUnavailable'));
                 disableButtons();
-                try { await api.runtime.sendMessage({ type: 'confirm-result', key, ok: false }); } catch { }
                 return;
             }
 
             const got = await api.storage.local.get(key).catch((e) => {
-                showError(`${I18N.FailedLoad}: ${e?.message || e}`);
+                showError(details(t('loadFailed'), e));
                 return {};
             });
             const data = got[key];
             if (!data || !data.stats) {
-                showError(I18N.PreviewNotFound);
+                showError(t('previewNotFound'));
                 disableButtons();
-                try { await api.runtime.sendMessage({ type: 'confirm-result', key, ok: false }); } catch { }
                 return;
             }
 
+            const backup = data.settings?.backupEnabled !== false;
+            qs('backup-mode').textContent = backup
+                ? t('backupLocation', data.settings?.saveRoot || 'BulkAttachmentBackup') : t('backupDisabledConfirmation');
+            if (!backup) {
+                qs('backup-mode').className = 'warn';
+                qs('ok').textContent = t('deleteWithoutBackup');
+            }
+
             const totalSelected = Array.isArray(data.messages) ? data.messages.length : 0;
-            if (totalSelected > 100) showWarn(I18N.warnMany(totalSelected));
+            if (totalSelected > 100) showWarn(t('manyMessages', number(totalSelected)));
 
             renderExtSummary(data.stats.extSummary || []);
             renderMessages(data.messages || []);
@@ -318,13 +228,13 @@
             // 上部サマリ（affected / total / bytes）を再計算して上書き
             const setTop = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = String(txt); };
             const affectedVal = Number(data.stats?.affectedMessages ?? 0);
-            setTop('affected', affectedVal);
+            setTop('affected', number(affectedVal));
 
             let totalVal = Number(data.stats?.totalAttachments ?? 0);
             if (!totalVal && Array.isArray(data.messages)) {
                 totalVal = data.messages.reduce((s, m) => s + (m?.attachments?.length || 0), 0);
             }
-            setTop('total', totalVal);
+            setTop('total', number(totalVal));
 
             let bytesVal = Number(data.stats?.totalSize ?? data.stats?.totalBytes ?? 0);
             if (!bytesVal && Array.isArray(data.stats?.extSummary)) {
@@ -336,107 +246,41 @@
                     , 0);
             }
             setTop('bytes', humanSize(bytesVal));
+            return true;
 
         } catch (e) {
             console.error('confirm: storage access failed', e);
-            showError(I18N.FailedLoad);
+            showError(t('loadFailed'));
             disableButtons();
-            try { await api.runtime.sendMessage({ type: 'confirm-result', key, ok: false }); } catch { }
         }
     }
-
-    /* ========= i18n apply ========= */
-
-    function applyI18nStaticLabels() {
-        // header
-        const h1 = document.querySelector('header h1');
-        const sub = document.querySelector('header .subtitle');
-        setText(h1, I18N.title);
-        setText(sub, I18N.subtitle);
-
-        // section titles
-        const sections = Array.from(document.querySelectorAll('section > h2'));
-        if (sections[0]) setText(sections[0], I18N.byExt);
-        if (sections[1]) setText(sections[1], I18N.messages);
-
-        // table headers: extTable
-        const extTh = Array.from(document.querySelectorAll('#extTable thead th'));
-        if (extTh[0]) setText(extTh[0], I18N.ext);
-        if (extTh[1]) setText(extTh[1], I18N.count);
-        if (extTh[2]) setText(extTh[2], I18N.total);
-
-        // table headers: msgTable
-        const msgTh = Array.from(document.querySelectorAll('#msgTable thead th'));
-        if (msgTh[0]) setText(msgTh[0], I18N.subject);
-        if (msgTh[1]) setText(msgTh[1], I18N.from);
-        if (msgTh[2]) setText(msgTh[2], I18N.received);
-        if (msgTh[3]) setText(msgTh[3], I18N.attachments);
-        if (msgTh[4]) setText(msgTh[4], I18N.namesSizes);
-
-        // buttons
-        const ok = qs('ok'), ca = qs('cancel');
-        setText(ok, I18N.ok);
-        setText(ca, I18N.cancel);
-
-        // 初期プレースホルダ（Loading…）も必要ならここで差し替え可能
-        const extBody = document.querySelector('#extTable tbody');
-        const msgBody = document.querySelector('#msgTable tbody');
-        if (extBody && extBody.children.length === 1) {
-            const only = extBody.children[0];
-            const td = only.querySelector('td');
-            if (td && td.classList.contains('muted')) td.textContent = I18N.loading;
-        }
-        if (msgBody && msgBody.children.length === 1) {
-            const only = msgBody.children[0];
-            const td = only.querySelector('td');
-            if (td && td.classList.contains('muted')) td.textContent = I18N.loading;
-        }
-    }
-
-    /* ========= Events ========= */
 
     function bindButtons(key) {
-        const ok = qs('ok'), ca = qs('cancel');
-
-        async function closeSelfSafely() {
+        let sending = false;
+        async function submit(ok) {
+            if (sending || (ok && !previewReady)) return;
+            sending = true;
+            disableButtons();
             try {
-                if (api?.tabs?.getCurrent) {
-                    const tab = await api.tabs.getCurrent();
-                    if (tab?.id) { await api.tabs.remove(tab.id); return; }
-                }
-            } catch { }
-            try {
-                if (api?.windows?.getCurrent) {
-                    const win = await api.windows.getCurrent();
-                    if (win?.id) { await api.windows.remove(win.id); return; }
-                }
-            } catch { }
-            try { window.close(); } catch { }
+                const response = await api.runtime.sendMessage({ type: 'confirm-result', key, ok });
+                if (!response?.ack) throw new Error(t('previewNotFound'));
+            } catch (error) {
+                showError(error.message || String(error));
+                sending = false;
+                qs('ok').disabled = !previewReady;
+                qs('cancel').disabled = false;
+            }
         }
-
-        let closing = false;
-
-        if (ok) ok.addEventListener('click', async () => {
-            if (closing) return; closing = true;
-            disableButtons();
-            try { await api.runtime.sendMessage({ type: 'confirm-result', key, ok: true }); } catch { }
-            await delay(120);
-            closeSelfSafely();
-        }, { once: true });
-
-        if (ca) ca.addEventListener('click', async () => {
-            if (closing) return; closing = true;
-            disableButtons();
-            try { await api.runtime.sendMessage({ type: 'confirm-result', key, ok: false }); } catch { }
-            await delay(120);
-            closeSelfSafely();
-        }, { once: true });
+        qs('ok').addEventListener('click', () => submit(true));
+        qs('cancel').addEventListener('click', () => submit(false));
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        applyI18nStaticLabels();
+    document.addEventListener('DOMContentLoaded', async () => {
+        apply();
         const key = setSummaryFromQuery();
         bindButtons(key);
-        loadAndRender(key);
+        previewReady = !!await loadAndRender(key);
+        qs('ok').disabled = !previewReady;
+        qs('cancel').disabled = false;
     });
 })();
